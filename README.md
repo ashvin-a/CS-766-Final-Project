@@ -1,7 +1,7 @@
 # 4-Week MVP Project Plan
 
 ---
-
+ALL THESE PLANS ARE SUBJECT TO CHANGE!!!
 ## Week 1: Foundation & The Orchestrator
 **Goal:** Set up the backend, user interface, and the LLM prompt parser.
 
