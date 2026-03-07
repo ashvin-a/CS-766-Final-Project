@@ -1,12 +1,8 @@
 from openai import OpenAI
+from json_repair import repair_json
+from src.utils.llm import CustomLLM
+from src.config import settings
 import json
-
-# Point the client to your local Ollama server
-# Make sure you have run: ollama run llama3
-client = OpenAI(
-    base_url='http://localhost:11434/v1',
-    api_key='ollama', # Required field, but ignored by local server
-)
 
 def parse_user_prompt(user_prompt: str) -> dict:
     """
@@ -32,26 +28,18 @@ def parse_user_prompt(user_prompt: str) -> dict:
 
     print("Sending prompt to local open-source LLM...")
     
-    response = client.chat.completions.create(
-        model="llama3", # Or "mistral", depending on what you downloaded
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"User Request: {user_prompt}"}
-        ],
-        temperature=0.2, # Low temperature for more deterministic, predictable output
-        # Some local servers support response_format={"type": "json_object"}
-    )
+    model = CustomLLM(endpoint=settings.GROQ_ENDPOINT,
+                    model_name="meta-llama/llama-4-maverick-17b-128e-instruct")
 
-    # Extract the text and parse the JSON
-    raw_response = response.choices[0].message.content
+    raw_response = model.invoke(prompt=user_prompt, system_prompt=system_prompt)
     
     try:
         # Strip out any markdown code blocks the LLM might have added
         clean_json = raw_response.replace('```json', '').replace('```', '').strip()
-        parsed_data = json.loads(clean_json)
+        parsed_data = repair_json(clean_json)
         return parsed_data
-    except json.JSONDecodeError:
-        print("Failed to parse JSON from LLM response.")
+    except Exception as e:
+        print(f"Failed to parse JSON from LLM response: {e}")
         print("Raw response:", raw_response)
         return {"error": "Invalid LLM output"}
 
