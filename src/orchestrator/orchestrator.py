@@ -36,7 +36,7 @@ def parse_user_prompt(user_prompt: str) -> dict:
     try:
         # Strip out any markdown code blocks the LLM might have added
         clean_json = raw_response.replace('```json', '').replace('```', '').strip()
-        parsed_data = repair_json(clean_json)
+        parsed_data = json.loads(repair_json(clean_json))
         return parsed_data
     except Exception as e:
         print(f"Failed to parse JSON from LLM response: {e}")
