@@ -1,7 +1,7 @@
 from openai import OpenAI
 from json_repair import repair_json
-from src.utils.llm import CustomLLM
-from src.config import settings
+from utils.llm import CustomLLM
+from config import settings
 import json
 
 def parse_user_prompt(user_prompt: str) -> dict:
