@@ -10,13 +10,11 @@ import argparse
 import logging
 import sys
 import os
+from config import settings
 
-from dotenv import load_dotenv
+from scraper.scraper import ImageScraper
+from scraper.storage import LocalStorage, DatabaseStorage
 
-from scraper import ImageScraper
-from storage import LocalStorage, DatabaseStorage
-
-load_dotenv()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -30,11 +28,11 @@ STORAGE_MODES = ("local", "database", "both")
 
 def get_config() -> dict:
     return {
-        "max_images": int(os.getenv("MAX_IMAGES", 20)),
-        "timeout": int(os.getenv("REQUEST_TIMEOUT", 30)),
-        "download_dir": os.getenv("DOWNLOAD_DIR", "downloads"),
-        "db_path": os.getenv("DB_PATH", "image_scraper.db"),
-        "user_agent": os.getenv("USER_AGENT"),
+        "max_images": settings.MAX_IMAGES,
+        "timeout": settings.REQUEST_TIMEOUT,
+        "download_dir": settings.DOWNLOAD_DIR,
+        "db_path": settings.DB_PATH,
+        "user_agent": settings.USER_AGENT,
     }
 
 
@@ -67,12 +65,13 @@ def run(keyword: str, mode: str, cfg: dict):
         user_agent=cfg["user_agent"],
     )
 
-    print(f"\n🔍  Scraping up to {cfg['max_images']} images for \"{keyword}\" …\n")
+    # print(f"\n🔍  Scraping up to {cfg['max_images']} images for \"{keyword}\" …\n")
     urls = scraper.scrape(keyword)
 
     if not urls:
         print("No images found. Try a different keyword or check your connection.")
         sys.exit(0)
+        return {"status": "Fail", "code": 400}
 
     print(f"Found {len(urls)} image URL(s).\n")
 
@@ -97,6 +96,7 @@ def run(keyword: str, mode: str, cfg: dict):
         print(f"  ✓ {count} total record(s) for \"{keyword}\" in {cfg['db_path']}\n")
 
     print("Done.")
+    return {"status": "Success", "code": 200}
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -113,18 +113,9 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main():
-    parser = build_parser()
-    args = parser.parse_args()
+def main(keyword, mode):
     cfg = get_config()
-
-    if args.keyword:
-        keyword = args.keyword
-        mode = args.mode or "both"
-    else:
-        keyword, mode = prompt_user()
-
-    run(keyword, mode, cfg)
+    return run(keyword, mode, cfg)
 
 
 if __name__ == "__main__":
