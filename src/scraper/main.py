@@ -58,7 +58,7 @@ def prompt_user() -> tuple[str, str]:
     return keyword, mode
 
 
-def run(keyword: str, mode: str, cfg: dict):
+def run(class_name: str, keyword: str, mode: str, cfg: dict):
     scraper = ImageScraper(
         max_images=cfg["max_images"],
         timeout=cfg["timeout"],
@@ -83,17 +83,17 @@ def run(keyword: str, mode: str, cfg: dict):
         local_paths = []
         success_count = 0
         for i, url in enumerate(urls, start=1):
-            path = local_store.save_image(url, keyword, i)
+            path = local_store.save_image(url, class_name, i)
             local_paths.append(path)
             if path:
                 success_count += 1
-        print(f"  ✓ Downloaded {success_count} of {len(urls)} images to {cfg['download_dir']}/{keyword}/\n")
+        print(f"  ✓ Downloaded {success_count} of {len(urls)} images to {cfg['download_dir']}/{class_name}/\n")
 
     if mode in ("database", "both"):
         db_store = DatabaseStorage(db_path=cfg["db_path"])
-        db_store.store_batch(keyword, urls, local_paths)
-        count = db_store.count_by_keyword(keyword)
-        print(f"  ✓ {count} total record(s) for \"{keyword}\" in {cfg['db_path']}\n")
+        db_store.store_batch(class_name, urls, local_paths)
+        count = db_store.count_by_keyword(class_name)
+        print(f"  ✓ {count} total record(s) for \"{class_name}\" in {cfg['db_path']}\n")
 
     print("Done.")
     return {"status": "Success", "code": 200}
@@ -113,9 +113,9 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(keyword, mode):
+def main(class_name, keyword, mode):
     cfg = get_config()
-    return run(keyword, mode, cfg)
+    return run(class_name, keyword, mode, cfg)
 
 
 if __name__ == "__main__":
