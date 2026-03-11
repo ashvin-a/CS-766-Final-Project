@@ -29,7 +29,7 @@ def parse_user_prompt(user_prompt: str) -> dict:
     print("Sending prompt to local open-source LLM...")
     
     model = CustomLLM(endpoint=settings.GROQ_ENDPOINT,
-                    model_name="meta-llama/llama-4-maverick-17b-128e-instruct")
+                    model_name="openai/gpt-oss-120b")
 
     raw_response = model.invoke(prompt=user_prompt, system_prompt=system_prompt)
     
