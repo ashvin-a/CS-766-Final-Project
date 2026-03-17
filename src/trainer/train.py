@@ -12,12 +12,13 @@ class Trainer:
         if torch.cuda.is_available():
             torch.backends.cudnn.benchmark = True  # Speeds up convolutions
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.resnet_path = os.path("src/trainer/resnet50-v2-7.onnx")
-        self.data_dirs = [
-            os.path(f"downloads/{class_name}") for class_name in class_names
-        ]
+        self.resnet_path = "src/trainer/resnet50-v2-7.onnx"
+        self.data_dirs = "downloads/"
+            # f"downloads/{class_name}" for class_name in class_names
+            
+        
 
-    def get_data_loaders(self, batch_size):
+    def get_data_loaders(self, batch_size=50):
         # Standard ResNet normalization values
         data_transforms = transforms.Compose(
             [
@@ -29,7 +30,7 @@ class Trainer:
             ]
         )
 
-        # ImageFolder automatically reads the directory structure your scraper made
+        # ImageFolder automatically reads the directory structure your scraper made            
         dataset = datasets.ImageFolder(os.path.join(self.data_dirs), data_transforms)
 
         # DataLoader handles batching and memory management
@@ -56,9 +57,9 @@ class Trainer:
 
         return model.to(self.device)
 
-    def finetune_model(self, data_dir, output_model_path, epochs=5):
-        print(f"Loading data from {data_dir}...")
-        dataloader, class_names = self.get_data_loaders(data_dir)
+    def finetune_model(self, output_model_path, epochs=5):
+        print(f"Loading data from {self.data_dirs}...")
+        dataloader, class_names = self.get_data_loaders()
         num_classes = len(class_names)
 
         print(f"Building model for {num_classes} classes: {class_names}")
@@ -67,7 +68,7 @@ class Trainer:
         criterion = nn.CrossEntropyLoss()
 
         # We only pass model.fc.parameters() to the optimizer
-        optimizer = optim.Adam(model.fc.parameters(), lr=0.001)
+        optimizer = optim.Adam(model.fc.parameters(), lr=0.003)
 
         print("Starting Training on:", self.device)
         model.train()
