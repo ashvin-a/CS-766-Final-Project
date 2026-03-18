@@ -5,18 +5,17 @@ from torchvision import datasets, models, transforms
 from torch.utils.data import DataLoader
 import os
 
+TRAINER_DIR = os.path.dirname(os.path.abspath(__file__))
+
 
 class Trainer:
 
-    def __init__(self, class_names: list):
+    def __init__(self, class_names: list, model_path: str = ""):
         if torch.cuda.is_available():
             torch.backends.cudnn.benchmark = True  # Speeds up convolutions
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.resnet_path = "src/trainer/resnet50-v2-7.onnx"
+        self.model_path = model_path or os.path.join(TRAINER_DIR, "resnet50-v2-7.onnx")
         self.data_dirs = "downloads/"
-            # f"downloads/{class_name}" for class_name in class_names
-            
-        
 
     def get_data_loaders(self, batch_size=50):
         # Standard ResNet normalization values
@@ -30,7 +29,7 @@ class Trainer:
             ]
         )
 
-        # ImageFolder automatically reads the directory structure your scraper made            
+        # ImageFolder automatically reads the directory structure your scraper made
         dataset = datasets.ImageFolder(os.path.join(self.data_dirs), data_transforms)
 
         # DataLoader handles batching and memory management
@@ -38,26 +37,80 @@ class Trainer:
             dataset, batch_size=batch_size, shuffle=True, num_workers=4
         )
 
-        class_names = dataset.classes
-        return dataloader, class_names
+        return dataloader, dataset.classes
 
-    def build_custom_resnet(self, num_classes):
-        # Load the pre-trained ResNet-50
-        model = models.resnet50(weights=models.ResNet50_Weights.IMAGENET1K_V1)
+    def _replace_classifier_head(self, model: nn.Module, num_classes: int) -> str:
+        """Replace the final Linear layer with one sized for num_classes.
+        Returns the attribute name of the replaced layer."""
+        # torchvision ResNet exposes .fc directly
+        if hasattr(model, "fc") and isinstance(model.fc, nn.Linear):
+            in_features = model.fc.in_features
+            model.fc = nn.Linear(in_features, num_classes)
+            return "fc"
 
-        # Freeze all the base layers (Feature Extractor)
-        for param in model.parameters():
-            param.requires_grad = False
+        # For ONNX-converted models, find the last Linear layer by name
+        last_name = None
+        for name, module in model.named_modules():
+            if isinstance(module, nn.Linear):
+                last_name = name
 
-        # Swap the final layer (Classifier Head)
-        num_ftrs = model.fc.in_features
+        if last_name is None:
+            raise RuntimeError("No Linear layer found in model to replace.")
 
-        # Replace it with a new layer that outputs our specific number of classes.
-        model.fc = nn.Linear(num_ftrs, num_classes)  # By default requires_grad is True
+        parts = last_name.rsplit(".", 1)
+        if len(parts) == 2:
+            parent = dict(model.named_modules())[parts[0]]
+            in_features = getattr(parent, parts[1]).in_features
+            setattr(parent, parts[1], nn.Linear(in_features, num_classes))
+        else:
+            in_features = getattr(model, last_name).in_features
+            setattr(model, last_name, nn.Linear(in_features, num_classes))
+
+        return last_name
+
+    def build_custom_resnet(self, num_classes: int) -> nn.Module:
+        model_path = self.model_path
+
+        if model_path.endswith(".onnx"):
+            import onnx2torch
+
+            print(f"Loading ONNX model from {model_path}...")
+            model = onnx2torch.convert(model_path)
+
+            # Freeze all base layers before swapping the head
+            for param in model.parameters():
+                param.requires_grad = False
+
+            self._replace_classifier_head(model, num_classes)
+
+        elif model_path.endswith(".pth"):
+            print(f"Loading .pth weights from {model_path}...")
+            model = models.resnet50()
+            state_dict = torch.load(model_path, map_location=self.device)
+            # strict=False ignores mismatched fc weights (e.g. different class count)
+            model.load_state_dict(state_dict, strict=False)
+
+            # Freeze all base layers before swapping the head
+            for param in model.parameters():
+                param.requires_grad = False
+
+            self._replace_classifier_head(model, num_classes)
+
+        else:
+            print("No model path provided; using ImageNet pretrained ResNet-50.")
+            model = models.resnet50(weights=models.ResNet50_Weights.IMAGENET1K_V1)
+
+            for param in model.parameters():
+                param.requires_grad = False
+
+            self._replace_classifier_head(model, num_classes)
 
         return model.to(self.device)
 
-    def finetune_model(self, output_model_path, epochs=5):
+    def finetune_model(self, output_model_path: str = False, epochs: int = 5) -> str:
+        if not output_model_path:
+            output_model_path = os.path.join(TRAINER_DIR, "finetuned_model.pth")
+
         print(f"Loading data from {self.data_dirs}...")
         dataloader, class_names = self.get_data_loaders()
         num_classes = len(class_names)
@@ -67,10 +120,11 @@ class Trainer:
 
         criterion = nn.CrossEntropyLoss()
 
-        # We only pass model.fc.parameters() to the optimizer
-        optimizer = optim.Adam(model.fc.parameters(), lr=0.003)
+        # Only pass trainable parameters (the new classifier head) to the optimizer
+        trainable_params = [p for p in model.parameters() if p.requires_grad]
+        optimizer = optim.Adam(trainable_params, lr=0.003)
 
-        print("Starting Training on:", self.device)
+        print("Starting training on:", self.device)
         model.train()
 
         for epoch in range(epochs):
@@ -81,17 +135,10 @@ class Trainer:
             for inputs, labels in dataloader:
                 inputs, labels = inputs.to(self.device), labels.to(self.device)
 
-                # Zero the parameter gradients
                 optimizer.zero_grad()
-
-                # Forward pass
                 outputs = model(inputs)
                 loss = criterion(outputs, labels)
-
-                # Get predictions (the index of the highest probability)
                 _, preds = torch.max(outputs, 1)
-
-                # Backward pass and optimize
                 loss.backward()
                 optimizer.step()
 
@@ -105,8 +152,6 @@ class Trainer:
                 f"Epoch {epoch+1}/{epochs} | Loss: {epoch_loss:.4f} | Acc: {epoch_acc:.4f}"
             )
 
-        # Save the fine-tuned weights
         torch.save(model.state_dict(), output_model_path)
         print(f"Model saved to {output_model_path}")
-
         return output_model_path
