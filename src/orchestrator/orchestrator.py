@@ -1,4 +1,3 @@
-from openai import OpenAI
 from json_repair import repair_json
 from utils.llm import CustomLLM
 from config import settings
