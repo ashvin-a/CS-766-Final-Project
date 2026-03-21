@@ -1,7 +1,12 @@
 from dotenv import load_dotenv
-import os
+import os, logging
 
 load_dotenv()
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s  %(levelname)-8s  %(name)s — %(message)s",
+    datefmt="%H:%M:%S",
+)
 
 class Settings:
     GROQ_API_KEY = os.getenv("GROQ_API_KEY_1")
