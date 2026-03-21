@@ -2,8 +2,8 @@ from fastapi import FastAPI
 import uvicorn
 from orchestrator import parse_user_prompt
 from scraper import main as scraper_main
+from data_generator import DataGenerator
 from trainer import Trainer, main as test_run
-from datetime import datetime
 from time import time
 
 app = FastAPI()
@@ -23,7 +23,11 @@ def run(user_prompt: str):
             if response.get("code") == 400:
                 return {"success": False, "code": 400}
 
-    # Finetune the model
+    # Split scraped images into train / test directories
+    data_gen = DataGenerator(source_dir="downloads")
+    data_gen.split_dataset()
+
+    # Finetune the model on training split only
     trainer = Trainer(class_names=class_names)
     trainer.finetune_model(epochs=12, output_model_path="")
     end_time = time()

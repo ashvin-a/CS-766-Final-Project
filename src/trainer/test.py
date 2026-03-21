@@ -10,7 +10,7 @@ from config import settings
 
 TRAINER_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(TRAINER_DIR, "finetuned_model.pth")
-DATA_DIR = os.path.join(settings.DOWNLOAD_DIR)
+DATA_DIR = os.path.join(settings.DOWNLOAD_DIR, "test")
 
 
 def get_dataloader(data_dir: str, batch_size: int = 32):

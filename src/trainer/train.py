@@ -15,7 +15,7 @@ class Trainer:
             torch.backends.cudnn.benchmark = True  # Speeds up convolutions
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model_path = model_path or os.path.join(TRAINER_DIR, "resnet50-v2-7.onnx")
-        self.data_dirs = "downloads/"
+        self.train_dir = "downloads/train"
 
     def get_data_loaders(self, batch_size=50):
         # Standard ResNet normalization values
@@ -30,9 +30,8 @@ class Trainer:
         )
 
         # ImageFolder automatically reads the directory structure your scraper made
-        dataset = datasets.ImageFolder(os.path.join(self.data_dirs), data_transforms)
+        dataset = datasets.ImageFolder(self.train_dir, data_transforms)
 
-        # DataLoader handles batching and memory management
         dataloader = DataLoader(
             dataset, batch_size=batch_size, shuffle=True, num_workers=4
         )
@@ -115,7 +114,7 @@ class Trainer:
         if not output_model_path:
             output_model_path = os.path.join(TRAINER_DIR, "finetuned_model.pth")
 
-        print(f"Loading data from {self.data_dirs}...")
+        print(f"Loading data from {self.train_dir}...")
         dataloader, class_names = self.get_data_loaders()
         num_classes = len(class_names)
 
