@@ -83,7 +83,7 @@ class Trainer:
                     param.requires_grad = False
 
                 self._replace_classifier_head(model, num_classes)
-            except NotImplementedError as e:
+            except Exception as e:
                 pass
 
         if model_path.endswith(".pth"):
