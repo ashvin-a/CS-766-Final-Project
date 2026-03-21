@@ -71,19 +71,23 @@ class Trainer:
     def build_custom_resnet(self, num_classes: int) -> nn.Module:
         model_path = self.model_path
 
+        #TODO Remove this condition. ONNX are for inference and including it in our use case might backfire.
         if model_path.endswith(".onnx"):
             import onnx2torch
+            import onnx
 
             print(f"Loading ONNX model from {model_path}...")
-            model = onnx2torch.convert(model_path)
+            try:
+                model = onnx2torch.convert(onnx.load(model_path))
+                # Freeze all base layers before swapping the head
+                for param in model.parameters():
+                    param.requires_grad = False
 
-            # Freeze all base layers before swapping the head
-            for param in model.parameters():
-                param.requires_grad = False
+                self._replace_classifier_head(model, num_classes)
+            except NotImplementedError as e:
+                pass
 
-            self._replace_classifier_head(model, num_classes)
-
-        elif model_path.endswith(".pth"):
+        if model_path.endswith(".pth"):
             print(f"Loading .pth weights from {model_path}...")
             model = models.resnet50()
             state_dict = torch.load(model_path, map_location=self.device)
