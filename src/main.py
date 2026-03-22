@@ -29,7 +29,7 @@ def run(user_prompt: str):
 
     # Finetune the model on training split only
     trainer = Trainer(class_names=class_names)
-    trainer.finetune_model(epochs=12, output_model_path="")
+    trainer.finetune_model(epochs=12, required_class_names=class_names, output_model_path="")
     end_time = time()
     total_time = end_time - start_time
     return {"success": True, "code": 200, "time_taken": f"{total_time:.2f}"}
