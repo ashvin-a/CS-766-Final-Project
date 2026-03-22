@@ -18,7 +18,7 @@ export async function submitNewRun(data: NewRunFormData): Promise<{ runId: strin
   const res = await fetch(`${API_BASE}/run/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ user_prompt: data.prompt }),
+    body: JSON.stringify({ user_prompt: data.prompt , model :data.model}),
   })
   const json = await res.json()
   if (!json.success) {
