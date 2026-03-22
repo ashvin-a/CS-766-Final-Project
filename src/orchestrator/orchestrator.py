@@ -1,5 +1,5 @@
 from json_repair import repair_json
-from utils.llm import CustomLLM
+from utils import CustomLLM
 from config import settings
 import json
 
