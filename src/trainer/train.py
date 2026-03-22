@@ -3,7 +3,8 @@ import torch.nn as nn
 import torch.optim as optim
 from torchvision import datasets, models, transforms
 from torch.utils.data import DataLoader
-import os
+import os, PIL
+from utils import Models
 
 TRAINER_DIR = os.path.dirname(os.path.abspath(__file__))
 
