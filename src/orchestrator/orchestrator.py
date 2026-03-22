@@ -23,6 +23,7 @@ def parse_user_prompt(user_prompt: str) -> dict:
         "class2": ["query 1", "query 2", "query 3"]
       }
     }
+    The target classes should be made singular while generating the JSON object.
     """
 
     print("Sending prompt to local open-source LLM...")
