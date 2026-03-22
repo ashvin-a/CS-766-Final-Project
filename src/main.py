@@ -1,4 +1,6 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 import uvicorn
 from orchestrator import parse_user_prompt
 from scraper import main as scraper_main
@@ -8,9 +10,22 @@ from time import time
 
 app = FastAPI()
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173", "http://127.0.0.1:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+class RunRequest(BaseModel):
+    user_prompt: str
+
 
 @app.post("/run/")
-def run(user_prompt: str):
+def run(req: RunRequest):
+    user_prompt = req.user_prompt
     start_time = time()
     response = parse_user_prompt(user_prompt=user_prompt)
     search_queries: dict = response.get("search_queries")

@@ -12,13 +12,19 @@ import {
   DEMO_PRESETS,
 } from "@/data/mockData"
 
-// Wire to VITE_API_BASE when configured: import.meta.env.VITE_API_BASE ?? "/api"
+const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000"
 
 export async function submitNewRun(data: NewRunFormData): Promise<{ runId: string }> {
-  // TODO: POST ${API_BASE}/runs
-  console.log("Submit run:", data)
-  await delay(800)
-  return { runId: "run-demo-" + Date.now() }
+  const res = await fetch(`${API_BASE}/run/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ user_prompt: data.prompt }),
+  })
+  const json = await res.json()
+  if (!json.success) {
+    throw new Error(json.message ?? "Run failed")
+  }
+  return { runId: "run-" + Date.now() }
 }
 
 export async function parsePrompt(prompt: string): Promise<ParsedPrompt> {
