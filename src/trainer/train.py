@@ -133,7 +133,7 @@ class Trainer:
 
         return model.to(self.device)
 
-    def finetune_model(self, required_class_names: list, output_model_path: str = False, epochs: int = 5) -> str:
+    def finetune_model(self, required_class_names: list, output_model_path: str = False, epochs: int = 5, model_architecture: Models= Models.RESNET_50) -> str:
         if not output_model_path:
             output_model_path = os.path.join(TRAINER_DIR, "finetuned_model.pth")
 
@@ -142,7 +142,8 @@ class Trainer:
         num_classes = len(class_names)
 
         print(f"Building model for {num_classes} classes: {class_names}")
-        model = self.build_custom_resnet(num_classes)
+        if model_architecture == Models.RESNET_50:
+            model = self.build_custom_resnet(num_classes)
 
         criterion = nn.CrossEntropyLoss()
 
@@ -153,31 +154,34 @@ class Trainer:
         print("Starting training on:", self.device)
         model.train()
 
+        max_accuracy = 0
         for epoch in range(epochs):
             running_loss = 0.0
             corrects = 0
             total = 0
+            try:
+                for inputs, labels in dataloader:
+                    inputs, labels = inputs.to(self.device), labels.to(self.device)
 
-            for inputs, labels in dataloader:
-                inputs, labels = inputs.to(self.device), labels.to(self.device)
+                    optimizer.zero_grad()
+                    outputs = model(inputs)
+                    loss = criterion(outputs, labels)
+                    _, preds = torch.max(outputs, 1)
+                    loss.backward()
+                    optimizer.step()
 
-                optimizer.zero_grad()
-                outputs = model(inputs)
-                loss = criterion(outputs, labels)
-                _, preds = torch.max(outputs, 1)
-                loss.backward()
-                optimizer.step()
+                    running_loss += loss.item() * inputs.size(0)
+                    corrects += torch.sum(preds == labels.data)
+                    total += inputs.size(0)
 
-                running_loss += loss.item() * inputs.size(0)
-                corrects += torch.sum(preds == labels.data)
-                total += inputs.size(0)
-
-            epoch_loss = running_loss / total
-            epoch_acc = corrects.double() / total
-            print(
-                f"Epoch {epoch+1}/{epochs} | Loss: {epoch_loss:.4f} | Acc: {epoch_acc:.4f}"
-            )
-
+                epoch_loss = running_loss / total
+                epoch_acc = corrects.double() / total
+                print(
+                    f"Epoch {epoch+1}/{epochs} | Loss: {epoch_loss:.4f} | Acc: {epoch_acc:.4f}"
+                )
+                max_accuracy = max(max_accuracy, epoch_acc)
+            except PIL.UnidentifiedImageError as e:
+                print(f"Skipping Epoch {epoch+1}/{epochs} because of corrupted image")
         torch.save(model.state_dict(), output_model_path)
         print(f"Model saved to {output_model_path}")
-        return output_model_path
+        return max_accuracy

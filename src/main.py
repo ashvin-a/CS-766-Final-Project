@@ -1,12 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 import uvicorn
 from orchestrator import parse_user_prompt
 from scraper import main as scraper_main
 from data_generator import DataGenerator
 from trainer import Trainer, main as test_run
 from time import time
+from utils import RunRequest
 
 app = FastAPI()
 
@@ -18,9 +18,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-class RunRequest(BaseModel):
-    user_prompt: str
 
 
 @app.post("/run/")
@@ -44,7 +41,7 @@ def run(req: RunRequest):
 
     # Finetune the model on training split only
     trainer = Trainer(class_names=class_names)
-    trainer.finetune_model(epochs=12, required_class_names=class_names, output_model_path="")
+    max_confidence = trainer.finetune_model(epochs=12, required_class_names=class_names, output_model_path="", model_architecture=req.model)
     end_time = time()
     total_time = end_time - start_time
     return {"success": True, "code": 200, "time_taken": f"{total_time:.2f}"}
