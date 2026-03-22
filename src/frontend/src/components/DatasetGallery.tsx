@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts"
-import { cn } from "@/lib/utils"
+import { cn } from "@/utils/utils"
 import type { DatasetImage, ClassDistribution } from "@/types"
 
 const SOURCE_COLORS: Record<string, string> = {

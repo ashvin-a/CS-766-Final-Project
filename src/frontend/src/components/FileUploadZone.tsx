@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react"
 import { Upload, X, File } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { cn } from "@/utils/utils"
 
 interface FileUploadZoneProps {
   accept?: string

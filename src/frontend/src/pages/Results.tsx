@@ -2,7 +2,7 @@ import { useState, useEffect } from "react"
 import { useSearchParams } from "react-router-dom"
 import { MetricsPanel } from "@/components/MetricsPanel"
 import { Card, CardContent } from "@/components/ui/card"
-import { getRunResult } from "@/lib/api"
+import { getRunResult } from "@/utils/api"
 import type { RunResult } from "@/types"
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts"
 

@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Download, Mail } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { cn } from "@/utils/utils"
 import type { RunResult } from "@/types"
 
 interface MetricsPanelProps {

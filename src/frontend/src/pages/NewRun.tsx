@@ -5,7 +5,7 @@ import { ParsedPromptPreview } from "@/components/ParsedPromptPreview"
 import { PipelineStepper } from "@/components/PipelineStepper"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { submitNewRun, parsePrompt } from "@/lib/api"
+import { submitNewRun, parsePrompt } from "@/utils/api"
 import type { NewRunFormData, ParsedPrompt } from "@/types"
 import { MOCK_PIPELINE_PROGRESS, DEMO_PRESETS } from "@/data/mockData"
 

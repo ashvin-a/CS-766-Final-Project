@@ -4,7 +4,7 @@ import { PipelineStepper } from "@/components/PipelineStepper"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { MOCK_PIPELINE_PROGRESS } from "@/data/mockData"
 import { useNavigate } from "react-router-dom"
-import { parsePrompt } from "@/lib/api"
+import { parsePrompt } from "@/utils/api"
 import { DEMO_PRESETS } from "@/data/mockData"
 
 export function Dashboard() {

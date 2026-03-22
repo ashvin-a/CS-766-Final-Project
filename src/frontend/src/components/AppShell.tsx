@@ -10,7 +10,7 @@ import {
   Activity,
   Menu,
 } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { cn } from "@/utils/utils"
 import { ThemeToggle } from "./ThemeToggle"
 import { Badge } from "./ui/badge"
 import { Button } from "./ui/button"
@@ -23,7 +23,7 @@ import {
   SheetTrigger,
 } from "./ui/sheet"
 import { useState, useEffect } from "react"
-import { getBackendHealth } from "@/lib/api"
+import { getBackendHealth } from "@/utils/api"
 
 const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },

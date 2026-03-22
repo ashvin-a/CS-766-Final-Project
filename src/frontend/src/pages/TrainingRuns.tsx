@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import { TrainingRunCard } from "@/components/TrainingRunCard"
-import { getTrainingRuns } from "@/lib/api"
+import { getTrainingRuns } from "@/utils/api"
 import type { TrainingRun } from "@/types"
 
 export function TrainingRuns() {

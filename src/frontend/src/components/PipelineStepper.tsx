@@ -2,7 +2,7 @@ import { ChevronRight, Check, Loader2, X } from "lucide-react"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
-import { cn } from "@/lib/utils"
+import { cn } from "@/utils/utils"
 import type { PipelineStageInfo } from "@/types"
 
 const STAGE_ICONS: Record<string, string> = {
