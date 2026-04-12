@@ -24,6 +24,7 @@ def parse_user_prompt(user_prompt: str) -> dict:
       }
     }
     The target classes should be made singular while generating the JSON object.
+    Make sure that the search queries are highly relevant with the corresponding class.
     """
 
     print("Sending prompt to local open-source LLM...")
