@@ -7,6 +7,7 @@ from data_generator import DataGenerator
 from trainer import Trainer, main as test_run
 from time import time
 from utils import RunRequest
+from config import settings
 
 app = FastAPI()
 
@@ -35,9 +36,10 @@ def run(req: RunRequest):
             if response.get("code") == 400:
                 return {"success": False, "code": 400}
 
-    # Split scraped images into train / test directories
-    data_gen = DataGenerator(source_dir="downloads")
+    # Split scraped images into train / test, then augment training set only
+    data_gen = DataGenerator(source_dir=settings.DOWNLOAD_DIR)
     data_gen.split_dataset()
+    data_gen.augment_training_data(copies_per_image=5)
 
     # Finetune the model on training split only
     trainer = Trainer(class_names=class_names)

@@ -5,6 +5,7 @@ from torchvision import datasets, models, transforms
 from torch.utils.data import DataLoader
 import os, PIL
 from utils import Models
+from config import settings
 
 TRAINER_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -16,7 +17,7 @@ class Trainer:
             torch.backends.cudnn.benchmark = True  # Speeds up convolutions
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model_path = model_path or os.path.join(TRAINER_DIR, "resnet50-v2-7.onnx")
-        self.train_dir = "downloads/train"
+        self.train_dir = os.path.join(settings.DOWNLOAD_DIR, "train")
 
     def get_data_loaders(self, required_class_names:list, batch_size=50):
         # Standard ResNet normalization values
