@@ -42,7 +42,7 @@ def run(req: RunRequest):
     data_gen.augment_training_data(copies_per_image=5)
 
     # Finetune the model on training split only
-    trainer = Trainer(class_names=class_names)
+    trainer = Trainer()
     max_confidence = trainer.finetune_model(epochs=12, required_class_names=class_names, output_model_path="", model_architecture=req.model)
     end_time = time()
     total_time = end_time - start_time

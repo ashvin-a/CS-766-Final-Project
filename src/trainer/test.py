@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, classification_report
 import numpy as np
 from config import settings
+from utils import Models
+from utils.model_builder import ModelBuilder
 
 TRAINER_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(TRAINER_DIR, "finetuned_model.pth")
@@ -24,21 +26,52 @@ def get_dataloader(data_dir: str, batch_size: int = 32):
     return loader, dataset.classes
 
 
-def load_baseline_model(num_classes: int, device: torch.device) -> nn.Module:
-    """ImageNet-pretrained ResNet-50 with only the head replaced — no finetuning."""
-    model = models.resnet50(weights=models.ResNet50_Weights.IMAGENET1K_V1)
-    for param in model.parameters():
-        param.requires_grad = False
-    model.fc = nn.Linear(model.fc.in_features, num_classes)
-    model.to(device)
+def _detect_architecture(model_path: str) -> str:
+    """Return the architecture value string stored in a checkpoint, defaulting to resnet50."""
+    checkpoint = torch.load(model_path, map_location="cpu")
+    if isinstance(checkpoint, dict) and "architecture" in checkpoint:
+        return checkpoint["architecture"]
+    return Models.RESNET_50.value
+
+
+def load_baseline_model(num_classes: int, device: torch.device, arch_value: str = Models.RESNET_50.value) -> nn.Module:
+    """ImageNet-pretrained model matching arch_value with only the head replaced — no finetuning."""
+    try:
+        arch = Models(arch_value)
+    except ValueError:
+        arch = Models.RESNET_50
+    builder = ModelBuilder()
+    builder.device = device
+    model = builder.build_custom_model(num_classes=num_classes, model_architecture=arch)
     model.eval()
     return model
 
 
 def load_finetuned_model(model_path: str, num_classes: int, device: torch.device) -> nn.Module:
-    model = models.resnet50()
-    model.fc = nn.Linear(model.fc.in_features, num_classes)
-    state_dict = torch.load(model_path, map_location=device)
+    checkpoint = torch.load(model_path, map_location=device)
+    if isinstance(checkpoint, dict) and "state_dict" in checkpoint:
+        arch_value = checkpoint.get("architecture", Models.RESNET_50.value)
+        state_dict = checkpoint["state_dict"]
+    else:
+        # Legacy checkpoint: bare state dict, assume resnet50
+        arch_value = Models.RESNET_50.value
+        state_dict = checkpoint
+
+    try:
+        arch = Models(arch_value)
+    except ValueError:
+        arch = Models.RESNET_50
+
+    # Build skeleton with correct head shape (no pretrained weights needed)
+    _ARCH_WEIGHTS_NONE = {
+        Models.RESNET_50:    lambda: models.resnet50(weights=None),
+        Models.MOBILENET_V3: lambda: models.mobilenet_v3_large(weights=None),
+        Models.EFFICIENTNET: lambda: models.efficientnet_b0(weights=None),
+        Models.CONV_NEXT:    lambda: models.convnext_tiny(weights=None),
+    }
+    model: nn.Module = _ARCH_WEIGHTS_NONE.get(arch, _ARCH_WEIGHTS_NONE[Models.RESNET_50])()
+    ModelBuilder()._replace_classifier_head(model, num_classes)
+
     model.load_state_dict(state_dict)
     model.to(device)
     model.eval()
@@ -133,11 +166,15 @@ def main():
     num_classes = len(class_names)
     print(f"Classes ({num_classes}): {class_names}")
 
-    # Baseline model 
-    print("\nEvaluating baseline model (pretrained ResNet-50, untrained head)...")
-    baseline_model = load_baseline_model(num_classes, device)
+    # Detect architecture from finetuned checkpoint so baseline uses the same backbone
+    arch_value = _detect_architecture(MODEL_PATH)
+    print(f"Detected architecture: {arch_value}")
+
+    # Baseline model
+    print("\nEvaluating baseline model (pretrained, untrained head)...")
+    baseline_model = load_baseline_model(num_classes, device, arch_value=arch_value)
     base_labels, base_preds = run_inference(baseline_model, loader, device)
-    print_report(base_labels, base_preds, class_names, "Baseline Model (ImageNet pretrained + random head)")
+    print_report(base_labels, base_preds, class_names, f"Baseline Model ({arch_value} ImageNet pretrained + random head)")
 
     base_cm_path = os.path.join(TRAINER_DIR, "confusion_matrix_baseline.png")
     plot_confusion_matrix(
