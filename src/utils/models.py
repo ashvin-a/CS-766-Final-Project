@@ -5,8 +5,7 @@ class Models(enum.Enum):
     RESNET_50 = "resnet50"
     MOBILENET_V3 = "mobilenetv3"
     EFFICIENTNET = "efficientnet_b0"
-    VIT_B16 = "vit_b16"
-    CLIP_CLASSIFIER = "clip_classifier"
+    CONV_NEXT = "ConvNeXt"
 
 
 class RunRequest(BaseModel):
