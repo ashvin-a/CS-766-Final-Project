@@ -1,0 +1,6 @@
+{
+  "include": ["src"],
+  "venvPath": ".",
+  "venv": ".venv",
+  "extraPaths": ["vendor/diffusers/src"]
+}
