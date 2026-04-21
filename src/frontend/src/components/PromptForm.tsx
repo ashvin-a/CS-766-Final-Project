@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -13,7 +13,8 @@ import {
 import { Slider } from "@/components/ui/slider"
 import { ModelSelector } from "./ModelSelector"
 import { FileUploadZone } from "./FileUploadZone"
-import type { NewRunFormData, VisionModel } from "@/types"
+import type { NewRunFormData, PromptFormState, VisionModel } from "@/types"
+import { submitSampleRunConfiguration, SubmitRunError } from "@/utils/api"
 import { Loader2 } from "lucide-react"
 
 const PROMPT_PLACEHOLDERS = [
@@ -22,69 +23,130 @@ const PROMPT_PLACEHOLDERS = [
   "Classify indoor vs outdoor scenes",
 ]
 
+const defaultAdvanced: PromptFormState["advanced"] = {
+  datasetSizeTarget: 1000,
+  augmentationStrength: 0.5,
+  clipThreshold: 0.7,
+  freezeBackbone: false,
+  epochs: 10,
+  batchSize: 32,
+  learningRate: 0.0001,
+  deliveryFormat: "pytorch",
+}
+
+const defaultDataSources: PromptFormState["dataSources"] = {
+  webScraping: true,
+  syntheticGeneration: true,
+  augmentation: true,
+  clipFiltering: true,
+}
+
+function stateFromInitial(initial?: Partial<NewRunFormData>): PromptFormState {
+  return {
+    prompt: initial?.prompt ?? "",
+    email: initial?.email ?? "",
+    model: (initial?.model ?? "efficientnet_b0") as VisionModel,
+    baseModelFiles: initial?.baseModelFile ? [initial.baseModelFile] : [],
+    referenceImages: initial?.referenceImages ?? [],
+    dataSources: initial?.dataSources ?? { ...defaultDataSources },
+    advanced: initial?.advanced ? { ...defaultAdvanced, ...initial.advanced } : { ...defaultAdvanced },
+  }
+}
+
+function toNewRunFormData(f: PromptFormState): NewRunFormData {
+  return {
+    prompt: f.prompt,
+    email: f.email,
+    model: f.model,
+    baseModelFile: f.baseModelFiles[0],
+    referenceImages: f.referenceImages,
+    dataSources: f.dataSources,
+    advanced: f.advanced,
+  }
+}
+
 interface PromptFormProps {
-  onSubmit: (data: NewRunFormData) => Promise<void>
-  isSubmitting?: boolean
+  /** Called after the sample-run API succeeds. */
+  onSuccess?: (
+    data: NewRunFormData,
+    result: { runId: string; message?: string }
+  ) => void | Promise<void>
   initialData?: Partial<NewRunFormData>
 }
 
-export function PromptForm({
-  onSubmit,
-  isSubmitting = false,
-  initialData,
-}: PromptFormProps) {
-  const [prompt, setPrompt] = useState(initialData?.prompt ?? "")
-  const [email, setEmail] = useState(initialData?.email ?? "")
-  const [model, setModel] = useState<VisionModel>(initialData?.model ?? "efficientnet_b0")
-  const [baseModelFile, setBaseModelFile] = useState<File[]>(
-    initialData?.baseModelFile ? [initialData.baseModelFile] : []
-  )
-  const [referenceImages, setReferenceImages] = useState<File[]>(
-    initialData?.referenceImages ?? []
-  )
-  const [dataSources, setDataSources] = useState(
-    initialData?.dataSources ?? {
-      webScraping: true,
-      syntheticGeneration: true,
-      augmentation: true,
-      clipFiltering: true,
+export function PromptForm({ onSuccess, initialData }: PromptFormProps) {
+  const [form, setForm] = useState<PromptFormState>(() => stateFromInitial(initialData))
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [feedback, setFeedback] = useState<{ kind: "success" | "error"; text: string } | null>(null)
+
+  useEffect(() => {
+    if (initialData) {
+      setForm(stateFromInitial(initialData))
     }
-  )
-  const [advanced, setAdvanced] = useState(
-    initialData?.advanced ?? {
-      datasetSizeTarget: 1000,
-      augmentationStrength: 0.5,
-      clipThreshold: 0.7,
-      freezeBackbone: false,
-      epochs: 10,
-      batchSize: 32,
-      learningRate: 0.0001,
-      deliveryFormat: "pytorch",
-    }
-  )
+  }, [initialData])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    await onSubmit({
-      prompt,
-      email,
-      model,
-      baseModelFile: baseModelFile[0],
-      referenceImages,
-      dataSources,
-      advanced,
-    })
+    setFeedback(null)
+    const payload = toNewRunFormData(form)
+    setIsSubmitting(true)
+    try {
+      const result = await submitSampleRunConfiguration(payload)
+      setFeedback({
+        kind: "success",
+        text:
+          result.message ??
+          `Submitted successfully. Run id: ${result.runId}. You can continue with pipeline steps below.`,
+      })
+      try {
+        await onSuccess?.(payload, result)
+      } catch (hookErr) {
+        setFeedback({
+          kind: "error",
+          text:
+            hookErr instanceof Error
+              ? `Saved to server, but a follow-up step failed: ${hookErr.message}`
+              : "Saved to server, but a follow-up step failed.",
+        })
+      }
+    } catch (err) {
+      const text =
+        err instanceof SubmitRunError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : "Something went wrong. Check that the API is running (e.g. FastAPI on port 8000) and try again."
+      setFeedback({
+        kind: "error",
+        text,
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {feedback && (
+        <div
+          role="status"
+          className={
+            feedback.kind === "success"
+              ? "rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200"
+              : "rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          }
+        >
+          {feedback.text}
+        </div>
+      )}
+
       <div className="space-y-2">
         <Label htmlFor="prompt">Prompt</Label>
         <Textarea
           id="prompt"
           placeholder={PROMPT_PLACEHOLDERS[0]}
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
+          value={form.prompt}
+          onChange={(e) => setForm((f) => ({ ...f, prompt: e.target.value }))}
           rows={4}
           className="resize-none font-mono text-sm"
           required
@@ -100,13 +162,13 @@ export function PromptForm({
           id="email"
           type="email"
           placeholder="you@example.com"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          value={form.email}
+          onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
           required
         />
       </div>
 
-      <ModelSelector value={model} onChange={setModel} />
+      <ModelSelector value={form.model} onChange={(m) => setForm((f) => ({ ...f, model: m }))} />
 
       <FileUploadZone
         label="Base model (optional)"
@@ -114,15 +176,15 @@ export function PromptForm({
         accept=".pth,.pt,.onnx"
         multiple={false}
         maxFiles={1}
-        value={baseModelFile}
-        onChange={(f) => setBaseModelFile(f)}
+        value={form.baseModelFiles}
+        onChange={(files) => setForm((f) => ({ ...f, baseModelFiles: files }))}
       />
 
       <FileUploadZone
         label="Reference images"
         description="Sample images for each class"
-        value={referenceImages}
-        onChange={setReferenceImages}
+        value={form.referenceImages}
+        onChange={(files) => setForm((f) => ({ ...f, referenceImages: files }))}
       />
 
       <div className="space-y-4">
@@ -130,36 +192,39 @@ export function PromptForm({
         <div className="flex flex-wrap gap-6">
           <label className="flex items-center gap-2">
             <Switch
-              checked={dataSources.webScraping}
+              checked={form.dataSources.webScraping}
               onCheckedChange={(c) =>
-                setDataSources((s) => ({ ...s, webScraping: c }))
+                setForm((f) => ({ ...f, dataSources: { ...f.dataSources, webScraping: c } }))
               }
             />
             <span className="text-sm">Web Scraping</span>
           </label>
           <label className="flex items-center gap-2">
             <Switch
-              checked={dataSources.syntheticGeneration}
+              checked={form.dataSources.syntheticGeneration}
               onCheckedChange={(c) =>
-                setDataSources((s) => ({ ...s, syntheticGeneration: c }))
+                setForm((f) => ({
+                  ...f,
+                  dataSources: { ...f.dataSources, syntheticGeneration: c },
+                }))
               }
             />
             <span className="text-sm">Synthetic Generation</span>
           </label>
           <label className="flex items-center gap-2">
             <Switch
-              checked={dataSources.augmentation}
+              checked={form.dataSources.augmentation}
               onCheckedChange={(c) =>
-                setDataSources((s) => ({ ...s, augmentation: c }))
+                setForm((f) => ({ ...f, dataSources: { ...f.dataSources, augmentation: c } }))
               }
             />
             <span className="text-sm">Augmentation</span>
           </label>
           <label className="flex items-center gap-2">
             <Switch
-              checked={dataSources.clipFiltering}
+              checked={form.dataSources.clipFiltering}
               onCheckedChange={(c) =>
-                setDataSources((s) => ({ ...s, clipFiltering: c }))
+                setForm((f) => ({ ...f, dataSources: { ...f.dataSources, clipFiltering: c } }))
               }
             />
             <span className="text-sm">CLIP Filtering</span>
@@ -172,11 +237,11 @@ export function PromptForm({
           <AccordionTrigger>Advanced settings</AccordionTrigger>
           <AccordionContent className="space-y-4 pt-2">
             <div className="space-y-2">
-              <Label>Dataset size target: {advanced.datasetSizeTarget}</Label>
+              <Label>Dataset size target: {form.advanced.datasetSizeTarget}</Label>
               <Slider
-                value={[advanced.datasetSizeTarget]}
+                value={[form.advanced.datasetSizeTarget]}
                 onValueChange={([v]) =>
-                  setAdvanced((a) => ({ ...a, datasetSizeTarget: v }))
+                  setForm((f) => ({ ...f, advanced: { ...f.advanced, datasetSizeTarget: v } }))
                 }
                 min={100}
                 max={5000}
@@ -184,11 +249,11 @@ export function PromptForm({
               />
             </div>
             <div className="space-y-2">
-              <Label>Augmentation strength: {advanced.augmentationStrength}</Label>
+              <Label>Augmentation strength: {form.advanced.augmentationStrength}</Label>
               <Slider
-                value={[advanced.augmentationStrength]}
+                value={[form.advanced.augmentationStrength]}
                 onValueChange={([v]) =>
-                  setAdvanced((a) => ({ ...a, augmentationStrength: v }))
+                  setForm((f) => ({ ...f, advanced: { ...f.advanced, augmentationStrength: v } }))
                 }
                 min={0}
                 max={1}
@@ -196,11 +261,11 @@ export function PromptForm({
               />
             </div>
             <div className="space-y-2">
-              <Label>CLIP threshold: {advanced.clipThreshold}</Label>
+              <Label>CLIP threshold: {form.advanced.clipThreshold}</Label>
               <Slider
-                value={[advanced.clipThreshold]}
+                value={[form.advanced.clipThreshold]}
                 onValueChange={([v]) =>
-                  setAdvanced((a) => ({ ...a, clipThreshold: v }))
+                  setForm((f) => ({ ...f, advanced: { ...f.advanced, clipThreshold: v } }))
                 }
                 min={0}
                 max={1}
@@ -209,9 +274,9 @@ export function PromptForm({
             </div>
             <label className="flex items-center gap-2">
               <Switch
-                checked={advanced.freezeBackbone}
+                checked={form.advanced.freezeBackbone}
                 onCheckedChange={(c) =>
-                  setAdvanced((a) => ({ ...a, freezeBackbone: c }))
+                  setForm((f) => ({ ...f, advanced: { ...f.advanced, freezeBackbone: c } }))
                 }
               />
               <span className="text-sm">Freeze backbone</span>
@@ -223,11 +288,14 @@ export function PromptForm({
                   type="number"
                   min={1}
                   max={100}
-                  value={advanced.epochs}
+                  value={form.advanced.epochs}
                   onChange={(e) =>
-                    setAdvanced((a) => ({
-                      ...a,
-                      epochs: parseInt(e.target.value) || 10,
+                    setForm((f) => ({
+                      ...f,
+                      advanced: {
+                        ...f.advanced,
+                        epochs: parseInt(e.target.value) || 10,
+                      },
                     }))
                   }
                 />
@@ -237,11 +305,14 @@ export function PromptForm({
                 <Input
                   type="number"
                   min={1}
-                  value={advanced.batchSize}
+                  value={form.advanced.batchSize}
                   onChange={(e) =>
-                    setAdvanced((a) => ({
-                      ...a,
-                      batchSize: parseInt(e.target.value) || 32,
+                    setForm((f) => ({
+                      ...f,
+                      advanced: {
+                        ...f.advanced,
+                        batchSize: parseInt(e.target.value) || 32,
+                      },
                     }))
                   }
                 />
@@ -251,11 +322,14 @@ export function PromptForm({
                 <Input
                   type="number"
                   step={0.0001}
-                  value={advanced.learningRate}
+                  value={form.advanced.learningRate}
                   onChange={(e) =>
-                    setAdvanced((a) => ({
-                      ...a,
-                      learningRate: parseFloat(e.target.value) || 0.0001,
+                    setForm((f) => ({
+                      ...f,
+                      advanced: {
+                        ...f.advanced,
+                        learningRate: parseFloat(e.target.value) || 0.0001,
+                      },
                     }))
                   }
                 />
@@ -263,11 +337,11 @@ export function PromptForm({
               <div className="space-y-2">
                 <Label>Delivery format</Label>
                 <Input
-                  value={advanced.deliveryFormat}
+                  value={form.advanced.deliveryFormat}
                   onChange={(e) =>
-                    setAdvanced((a) => ({
-                      ...a,
-                      deliveryFormat: e.target.value,
+                    setForm((f) => ({
+                      ...f,
+                      advanced: { ...f.advanced, deliveryFormat: e.target.value },
                     }))
                   }
                 />

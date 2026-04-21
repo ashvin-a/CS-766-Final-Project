@@ -5,7 +5,7 @@ import { ParsedPromptPreview } from "@/components/ParsedPromptPreview"
 import { PipelineStepper } from "@/components/PipelineStepper"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { submitNewRun, parsePrompt } from "@/utils/api"
+import { parsePrompt } from "@/utils/api"
 import type { NewRunFormData, ParsedPrompt } from "@/types"
 import { MOCK_PIPELINE_PROGRESS, DEMO_PRESETS } from "@/data/mockData"
 
@@ -15,7 +15,6 @@ export function NewRun() {
   const presetFromNav = (location.state as { preset?: { parsed: ParsedPrompt; formData: Partial<NewRunFormData> } })?.preset
   const [parsed, setParsed] = useState<ParsedPrompt | null>(presetFromNav?.parsed ?? null)
   const [formData, setFormData] = useState<Partial<NewRunFormData> | null>(presetFromNav?.formData ?? null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
   const [runId, setRunId] = useState<string | null>(null)
   const [pipelineStages, setPipelineStages] = useState(MOCK_PIPELINE_PROGRESS)
 
@@ -55,22 +54,19 @@ export function NewRun() {
     })
   }
 
-  const handleSubmit = async (data: NewRunFormData) => {
-    setIsSubmitting(true)
-    try {
-      const { runId: id } = await submitNewRun(data)
-      setRunId(id)
-      setParsed(await parsePrompt(data.prompt))
-      setPipelineStages(
-        MOCK_PIPELINE_PROGRESS.map((s, i) => ({
-          ...s,
-          status: i < 2 ? "completed" : i === 2 ? "running" : "pending",
-          progress: i === 2 ? 30 : i < 2 ? 100 : 0,
-        }))
-      )
-    } finally {
-      setIsSubmitting(false)
-    }
+  const handleRunSuccess = async (
+    data: NewRunFormData,
+    { runId: id }: { runId: string; message?: string }
+  ) => {
+    setRunId(id)
+    setParsed(await parsePrompt(data.prompt))
+    setPipelineStages(
+      MOCK_PIPELINE_PROGRESS.map((s, i) => ({
+        ...s,
+        status: i < 2 ? "completed" : i === 2 ? "running" : "pending",
+        progress: i === 2 ? 30 : i < 2 ? 100 : 0,
+      }))
+    )
   }
 
   return (
@@ -111,11 +107,7 @@ export function NewRun() {
               <h2 className="font-semibold">Configuration</h2>
             </CardHeader>
             <CardContent>
-              <PromptForm
-                onSubmit={handleSubmit}
-                isSubmitting={isSubmitting}
-                initialData={formData ?? undefined}
-              />
+              <PromptForm onSuccess={handleRunSuccess} initialData={formData ?? undefined} />
             </CardContent>
           </Card>
         </div>

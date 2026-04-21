@@ -114,3 +114,25 @@ export interface NewRunFormData {
     deliveryFormat: string
   }
 }
+
+/** JSON-serializable shape POSTed to the API (files represented by metadata only). */
+export interface NewRunFormJsonPayload {
+  prompt: string
+  email: string
+  model: VisionModel
+  dataSources: NewRunFormData["dataSources"]
+  advanced: NewRunFormData["advanced"]
+  baseModelFileName: string | null
+  referenceImages: { name: string; size: number; type: string }[]
+}
+
+/** In-memory form state (file lists before submit). */
+export interface PromptFormState {
+  prompt: string
+  email: string
+  model: VisionModel
+  baseModelFiles: File[]
+  referenceImages: File[]
+  dataSources: NewRunFormData["dataSources"]
+  advanced: NewRunFormData["advanced"]
+}
