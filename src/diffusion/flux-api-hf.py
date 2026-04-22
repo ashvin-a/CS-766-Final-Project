@@ -29,3 +29,10 @@ def flux_api_hf(prompt: str,model_id: str):
     )
 
     image.save("sample_output.png")
+    return image
+
+if __name__ == "__main__":
+    flux_api_hf("semi HD, realistic, photo of a man with a beard", "black-forest-labs/FLUX.1-schnell")
+    print("Image saved to sample_output.png")
+
+##Run the scrapper and image generation in parallel using multiprocessing

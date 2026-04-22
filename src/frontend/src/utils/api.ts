@@ -18,11 +18,13 @@ import {
   DEMO_PRESETS,
 } from "@/data/mockData"
 
-const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000"
-
+//const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000"
+const API_BASE = "http://localhost:8000"
 /** POST target for the new-run form JSON. Override with VITE_SAMPLE_RUN_URL in .env */
+
+//change this line to connect to the bin "https://httpbin.org/post" or local host or vite
 const SAMPLE_RUN_URL =
-  import.meta.env.VITE_SAMPLE_RUN_URL ?? "https://httpbin.org/post"
+  import.meta.env.VITE_SAMPLE_RUN_URL ??"http://localhost:8000"
 
 export class SubmitRunError extends Error {
   constructor(
