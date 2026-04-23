@@ -46,8 +46,8 @@ def run(req: RunRequest):
     max_confidence = trainer.finetune_model(epochs=12, required_class_names=class_names, output_model_path="", model_architecture=req.model)
     end_time = time()
     total_time = end_time - start_time
-    search_query_list = [query for query in search_queries.values()]
-    return {"classes": class_names, "code": 200, "searchPrompts": f"{search_query_list}", "diffusionPrompts":[], "confidence": max_confidence, "total_time": total_time}
+    # search_query_list = [query for query in search_queries.values()]
+    return {"classes": class_names, "code": 200, "confidence": max_confidence, "total_time": total_time}
 
 
 @app.post("/parse-user-prompt/")
