@@ -207,4 +207,4 @@ def main():
     print(f"  Baseline accuracy : {base_overall:.2f}%")
     print(f"  Finetuned accuracy: {ft_overall:.2f}%")
     print(f"  Delta             : {delta:+.2f}%")
-
+    return {"baseline_accuracy": base_overall, "finetune_accuracy": ft_overall}
