@@ -119,4 +119,11 @@ def main(class_name, keyword, mode):
 
 
 if __name__ == "__main__":
-    main()
+    parser = build_parser()
+    args = parser.parse_args()
+    if args.keyword:
+        mode = args.mode if args.mode is not None else "both"
+        main(class_name=args.keyword, keyword=args.keyword, mode=mode)
+    else:
+        keyword, mode = prompt_user()
+        main(class_name=keyword, keyword=keyword, mode=mode)

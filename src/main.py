@@ -8,6 +8,7 @@ from trainer import Trainer, main as test_run
 from time import time
 from utils import RunRequest
 from config import settings
+from filters import verify_downloads_for_classes
 
 app = FastAPI()
 
@@ -35,7 +36,27 @@ def run(req: RunRequest):
             )
             if response.get("code") == 400:
                 return {"success": False, "code": 400}
-
+#########
+    if settings.ENABLE_RELEVANCE_FILTER:
+        relevance_summary = verify_downloads_for_classes(
+            settings.DOWNLOAD_DIR,
+            class_names,
+            user_prompt,
+        )
+        for cn, stats in relevance_summary.items():
+            kept = stats.get("kept", 0)
+            if kept < settings.MIN_IMAGES_AFTER_FILTER:
+                return {
+                    "success": False,
+                    "code": 422,
+                    "message": (
+                        f"After CLIP relevance filtering, class {cn!r} has only {kept} "
+                        f"image(s) (minimum {settings.MIN_IMAGES_AFTER_FILTER}). "
+                        "Try lowering RELEVANCE_THRESHOLD or disabling ENABLE_RELEVANCE_FILTER."
+                    ),
+                    "relevance_summary": relevance_summary,
+                }
+########################
     # Split scraped images into train / test, then augment training set only
     data_gen = DataGenerator(source_dir=settings.DOWNLOAD_DIR)
     data_gen.split_dataset()
