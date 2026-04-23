@@ -58,7 +58,10 @@ def orchestrator(user_prompt: str) -> dict:
 @app.post("/test/")
 def accuracy_test():
     response = test_run()
-    return {"success": True, "baseline_accuracy": response.get("baseline_accuracy"),
+    return {"success": True, 
+            "baseline_cm": response.get("baseline_cm"),
+            "finetuned_cm": response.get("finetuned_cm"),
+            "baseline_accuracy": response.get("baseline_accuracy"),
             "finetune_accuracy": response.get("finetune_accuracy"),
             "message":"Confusion matrix generated", "code": 200}
 
