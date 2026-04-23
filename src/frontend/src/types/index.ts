@@ -90,12 +90,20 @@ export interface RunResult {
   samplePredictions?: { imageUrl: string; predicted: string; actual: string }[]
 }
 
+/** Shape returned by the backend /run/ pipeline (dataset & training summary). */
+export interface RunPipelineApiResponse {
+  classes: string[]
+  code: number
+  searchPrompts: string
+  diffusionPrompts: string[]
+  confidence: number
+  total_time: number
+}
+
 export interface NewRunFormData {
   prompt: string
   email: string
   model: VisionModel
-  baseModelFile?: File
-  referenceImages: File[]
   dataSources: {
     webScraping: boolean
     syntheticGeneration: boolean
@@ -115,24 +123,19 @@ export interface NewRunFormData {
   }
 }
 
-/** JSON-serializable shape POSTed to the API (files represented by metadata only). */
+/** JSON-serializable shape POSTed to the sample run API. */
 export interface NewRunFormJsonPayload {
   prompt: string
   email: string
   model: VisionModel
   dataSources: NewRunFormData["dataSources"]
   advanced: NewRunFormData["advanced"]
-  baseModelFileName: string | null
-  referenceImages: { name: string; size: number; type: string }[]
 }
 
-/** In-memory form state (file lists before submit). */
 export interface PromptFormState {
   prompt: string
   email: string
   model: VisionModel
-  baseModelFiles: File[]
-  referenceImages: File[]
   dataSources: NewRunFormData["dataSources"]
   advanced: NewRunFormData["advanced"]
 }

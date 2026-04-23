@@ -1,16 +1,60 @@
-import os
-from pathlib import Path
+from __future__ import annotations
 
+import hashlib
+import os
+import secrets
+from pathlib import Path
+import sys
+from typing import Optional, Union
+from groq import Groq
 from dotenv import load_dotenv
 from huggingface_hub import InferenceClient
+
+# src/ — so `import config` resolves to src/config.py
+_SRC = Path(__file__).resolve().parents[1]
+if str(_SRC) not in sys.path:
+    sys.path.insert(0, str(_SRC))
+
+# Load repo-root .env once so all functions see env vars.
+_ROOT = Path(__file__).resolve().parents[2]
+load_dotenv(_ROOT / ".env")
+
+def prompt_variations(_prompt: str):
+    groq_api_key = os.environ.get("GROQ_API_KEY") or os.environ.get("GROQ_API_KEY_1")
+    if not groq_api_key:
+        raise RuntimeError(
+            f"Set GROQ_API_KEY (or GROQ_API_KEY_1) in {_ROOT / '.env'} or export it in your shell."
+        )
+    client = Groq(api_key=groq_api_key)
+    completion = client.chat.completions.create(
+    model="llama-3.1-8b-instant",
+    messages=[
+        {
+            "role": "user",
+            "content": "Act as a prompt engineer and make 100 different variations of the prompt for generating a dataset for vision training: " + _prompt +"\n"+ "return the variations in a list of strings, each string should be a different variation of the prompt"+"make sure that the variations are not too similar to each other yet the context of the image does not change"+"optimize for toekn usage and keep the prompt short and concise and mention to keep the quality of the image medium with 480x480 resolution"
+        }
+    ]
+)
+    content = completion.choices[0].message.content or ""
+    return content.split(",")
+    
+    # print(settings.GROQ_API_KEY)
+    # print(settings.GROQ_ENDPOINT)
+    # print(settings.DEBUG)
+    # print(settings.MAX_IMAGES)
+    # print(settings.REQUEST_TIMEOUT)
+    # print(settings.DOWNLOAD_DIR)
+    # print(settings.DB_PATH)
+    # print(settings.USER_AGENT)
 
 
 # Load repo-root .env (not automatic). Run from any cwd: path is relative to this file.
 
-def flux_api_hf(prompt: str,model_id: str):
-    _ROOT = Path(__file__).resolve().parents[2]
-    load_dotenv(_ROOT / ".env")
-
+def flux_api_hf(
+    prompt: str,
+    model_id: str,
+    output_path: Optional[Union[str, Path]] = None,
+):
     HF_token = os.environ.get("HF_token")
     if not HF_token:
         raise RuntimeError(
@@ -28,11 +72,37 @@ def flux_api_hf(prompt: str,model_id: str):
         model=model_id
     )
 
-    image.save("sample_output.png")
+    out = Path(output_path) if output_path is not None else Path("sample_output.png")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    image.save(out)
     return image
 
+def generate_diffusion_dataset(
+    base_prompt: str,
+    model_id: str = "black-forest-labs/FLUX.1-schnell",
+) -> Path:
+    _REPO = Path(__file__).resolve().parents[2]
+    prompts_gen = prompt_variations(base_prompt)
+    run_hash = hashlib.sha256(
+        f"{base_prompt}{secrets.token_hex(8)}".encode()
+    ).hexdigest()[:12]
+    out_dir = _REPO / "diffusion_generation" / f"diffusion_generation_{run_hash}"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    for n, prompt in enumerate(prompts_gen, start=1):
+        out_path = out_dir / f"diffusion_generation_{run_hash}_{n:04d}.png"
+        flux_api_hf(prompt, "black-forest-labs/FLUX.1-schnell", out_path)
+        print(f"Image saved to {out_path}")
+        print("Prompt: " + prompt)
+        print("--------------------------------")
+    print(f"All images saved under {out_dir}")
+    return out_dir
+
+
+
+
 if __name__ == "__main__":
-    flux_api_hf("semi HD, realistic, photo of a man with a beard", "black-forest-labs/FLUX.1-schnell")
-    print("Image saved to sample_output.png")
+    generate_diffusion_dataset("semi HD, realistic, photo of a man with a beard")
+
+
 
 ##Run the scrapper and image generation in parallel using multiprocessing

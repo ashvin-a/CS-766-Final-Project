@@ -1,11 +1,4 @@
-import type {
-  ParsedPrompt,
-  PipelineStageInfo,
-  TrainingRun,
-  RunResult,
-  DatasetImage,
-  ClassDistribution,
-} from "@/types"
+import type { ParsedPrompt, PipelineStageInfo, TrainingRun, RunResult, RunPipelineApiResponse } from "@/types"
 
 export const DEMO_PRESETS = [
   {
@@ -149,21 +142,13 @@ export const MOCK_RUN_RESULT: RunResult = {
   ],
 }
 
-// Placeholder image URLs - use picsum or placehold.co for demo
-const PLACEHOLDER_BASE = "https://placehold.co/96x96"
-
-export const MOCK_DATASET_IMAGES: DatasetImage[] = [
-  { id: "1", url: `${PLACEHOLDER_BASE}/22c55e/white?text=H1`, classLabel: "healthy", source: "scraped" },
-  { id: "2", url: `${PLACEHOLDER_BASE}/22c55e/white?text=H2`, classLabel: "healthy", source: "generated" },
-  { id: "3", url: `${PLACEHOLDER_BASE}/22c55e/white?text=H3`, classLabel: "healthy", source: "augmented" },
-  { id: "4", url: `${PLACEHOLDER_BASE}/ef4444/white?text=D1`, classLabel: "diseased", source: "scraped" },
-  { id: "5", url: `${PLACEHOLDER_BASE}/ef4444/white?text=D2`, classLabel: "diseased", source: "generated" },
-  { id: "6", url: `${PLACEHOLDER_BASE}/94a3b8/white?text=X`, classLabel: "diseased", source: "filtered_out" },
-  { id: "7", url: `${PLACEHOLDER_BASE}/22c55e/white?text=H4`, classLabel: "healthy", source: "scraped" },
-  { id: "8", url: `${PLACEHOLDER_BASE}/ef4444/white?text=D3`, classLabel: "diseased", source: "augmented" },
-]
-
-export const MOCK_CLASS_DISTRIBUTION: ClassDistribution[] = [
-  { className: "healthy", count: 620, scraped: 180, generated: 220, augmented: 220 },
-  { className: "diseased", count: 620, scraped: 200, generated: 200, augmented: 220 },
-]
+/** Sample pipeline response for Dataset Studio visualizations (matches /run/ JSON shape). */
+export const MOCK_RUN_PIPELINE_RESPONSE: RunPipelineApiResponse = {
+  classes: ["healthy", "diseased"],
+  code: 200,
+  searchPrompts:
+    "[['healthy tomato leaf', 'diseased tomato blight'], ['tomato plant leaf spot', 'leaf mold']]",
+  diffusionPrompts: [],
+  confidence: 0.89,
+  total_time: 184.52,
+}

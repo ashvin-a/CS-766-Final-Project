@@ -1,102 +1,127 @@
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts"
-import { cn } from "@/utils/utils"
-import type { DatasetImage, ClassDistribution } from "@/types"
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+} from "recharts"
+import type { RunPipelineApiResponse } from "@/types"
 
-const SOURCE_COLORS: Record<string, string> = {
-  scraped: "bg-blue-500/80",
-  generated: "bg-purple-500/80",
-  augmented: "bg-amber-500/80",
-  filtered_out: "bg-red-500/50",
-}
+const CLASS_BAR_COLORS = [
+  "rgb(59 130 246)",
+  "rgb(168 85 247)",
+  "rgb(34 197 94)",
+  "rgb(245 158 11)",
+  "rgb(236 72 153)",
+  "rgb(20 184 166)",
+]
 
 interface DatasetGalleryProps {
-  images: DatasetImage[]
-  distribution: ClassDistribution[]
-  filteringStats?: { accepted: number; rejected: number }
+  pipelineResult: RunPipelineApiResponse
 }
 
-export function DatasetGallery({
-  images,
-  distribution,
-  filteringStats,
-}: DatasetGalleryProps) {
-  const chartData = distribution.map((d) => ({
-    name: d.className,
-    count: d.count,
-    scraped: d.scraped,
-    generated: d.generated,
-    augmented: d.augmented,
+export function DatasetGallery({ pipelineResult: data }: DatasetGalleryProps) {
+  const classBarData = data.classes.map((name, i) => ({
+    name: name.length > 14 ? `${name.slice(0, 12)}…` : name,
+    key: name,
+    weight: 1,
+    fill: CLASS_BAR_COLORS[i % CLASS_BAR_COLORS.length]!,
   }))
 
+  const codeOk = data.code >= 200 && data.code < 300
+
   return (
-    <div className="space-y-6">
-      {filteringStats && (
-        <Card>
-          <CardHeader>
-            <h3 className="font-semibold">Filtering stats</h3>
-          </CardHeader>
-          <CardContent>
-            <div className="flex gap-6">
-              <div>
-                <span className="text-2xl font-bold text-emerald-500">
-                  {filteringStats.accepted}
-                </span>
-                <span className="ml-2 text-muted-foreground">accepted</span>
-              </div>
-              <div>
-                <span className="text-2xl font-bold text-red-500">
-                  {filteringStats.rejected}
-                </span>
-                <span className="ml-2 text-muted-foreground">rejected</span>
+    <div className="space-y-8">
+      <Card className="border-border/80">
+        <CardHeader className="pb-2">
+          <CardDescription>Pipeline run summary</CardDescription>
+          <h3 className="text-lg font-semibold tracking-tight">Metrics &amp; classes</h3>
+        </CardHeader>
+        <CardContent className="space-y-6 pt-2">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="rounded-lg border border-border/60 bg-muted/30 p-4">
+              <p className="text-xs font-medium text-muted-foreground">HTTP code</p>
+              <p className="mt-1 flex items-center gap-2">
+                <span className="text-2xl font-bold tabular-nums">{data.code}</span>
+                {codeOk ? (
+                  <Badge variant="secondary" className="bg-emerald-500/20 text-emerald-200">
+                    OK
+                  </Badge>
+                ) : (
+                  <Badge variant="destructive">Error</Badge>
+                )}
+              </p>
+            </div>
+            <div className="rounded-lg border border-border/60 bg-muted/30 p-4">
+              <p className="text-xs font-medium text-muted-foreground">Model confidence</p>
+              <p className="mt-1 text-2xl font-bold tabular-nums">
+                {(data.confidence * 100).toFixed(1)}%
+              </p>
+              <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-primary"
+                  style={{ width: `${Math.min(100, data.confidence * 100)}%` }}
+                />
               </div>
             </div>
-          </CardContent>
-        </Card>
-      )}
+            <div className="rounded-lg border border-border/60 bg-muted/30 p-4">
+              <p className="text-xs font-medium text-muted-foreground">Total time</p>
+              <p className="mt-1 text-2xl font-bold tabular-nums">
+                {data.total_time.toFixed(1)}
+                <span className="ml-1 text-base font-normal text-muted-foreground">s</span>
+              </p>
+            </div>
+          </div>
 
-      <Card>
-        <CardHeader>
-          <h3 className="font-semibold">Class distribution</h3>
-        </CardHeader>
-        <CardContent>
-          <div className="h-48">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} layout="vertical" margin={{ left: 0 }}>
-                <XAxis type="number" />
-                <YAxis dataKey="name" type="category" width={80} />
-                <Tooltip />
-                <Bar dataKey="scraped" stackId="a" fill="rgb(59 130 246)" />
-                <Bar dataKey="generated" stackId="a" fill="rgb(168 85 247)" />
-                <Bar dataKey="augmented" stackId="a" fill="rgb(245 158 11)" />
-              </BarChart>
-            </ResponsiveContainer>
+          <div>
+            <p className="mb-2 text-sm font-medium">Classes in run</p>
+            <div className="mb-3 flex flex-wrap gap-2">
+              {data.classes.map((c) => (
+                <Badge key={c} variant="outline" className="text-sm">
+                  {c}
+                </Badge>
+              ))}
+            </div>
+            <div className="h-64 min-h-[16rem] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={classBarData}
+                  layout="vertical"
+                  margin={{ top: 8, right: 16, left: 8, bottom: 8 }}
+                >
+                  <XAxis type="number" hide />
+                  <YAxis
+                    dataKey="name"
+                    type="category"
+                    width={100}
+                    tick={{ fontSize: 12 }}
+                  />
+                  <Tooltip
+                    cursor={{ fill: "hsl(var(--muted) / 0.35)" }}
+                    formatter={(value, _name, props) => [
+                      String((props?.payload as { key?: string })?.key ?? value),
+                      "Class",
+                    ]}
+                  />
+                  <Bar dataKey="weight" name="Class" radius={[0, 4, 4, 0]} maxBarSize={28}>
+                    {classBarData.map((entry) => (
+                      <Cell key={entry.key} fill={entry.fill} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Equal bar height indicates each listed class is included in the run; compare labels on
+              the left.
+            </p>
           </div>
         </CardContent>
       </Card>
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {images.map((img) => (
-          <Card key={img.id} className="overflow-hidden">
-            <div className="aspect-square bg-muted">
-              <img
-                src={img.thumbnailUrl ?? img.url}
-                alt={img.classLabel}
-                className="h-full w-full object-cover"
-              />
-            </div>
-            <CardContent className="flex items-center justify-between p-2">
-              <Badge variant="outline">{img.classLabel}</Badge>
-              <Badge
-                className={cn("text-xs", SOURCE_COLORS[img.source] ?? "bg-muted")}
-              >
-                {img.source.replace("_", " ")}
-              </Badge>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
     </div>
   )
 }
