@@ -44,12 +44,6 @@ export function buildNewRunJsonPayload(data: NewRunFormData): NewRunFormJsonPayl
     model: data.model,
     dataSources: data.dataSources,
     advanced: data.advanced,
-    baseModelFileName: data.baseModelFile?.name ?? null,
-    referenceImages: data.referenceImages.map((f) => ({
-      name: f.name,
-      size: f.size,
-      type: f.type,
-    })),
   }
 }
 

@@ -12,7 +12,6 @@ import {
 } from "@/components/ui/accordion"
 import { Slider } from "@/components/ui/slider"
 import { ModelSelector } from "./ModelSelector"
-import { FileUploadZone } from "./FileUploadZone"
 import type { NewRunFormData, PromptFormState, VisionModel } from "@/types"
 import { submitSampleRunConfiguration, SubmitRunError } from "@/utils/api"
 import { Loader2 } from "lucide-react"
@@ -46,8 +45,6 @@ function stateFromInitial(initial?: Partial<NewRunFormData>): PromptFormState {
     prompt: initial?.prompt ?? "",
     email: initial?.email ?? "",
     model: (initial?.model ?? "efficientnet_b0") as VisionModel,
-    baseModelFiles: initial?.baseModelFile ? [initial.baseModelFile] : [],
-    referenceImages: initial?.referenceImages ?? [],
     dataSources: initial?.dataSources ?? { ...defaultDataSources },
     advanced: initial?.advanced ? { ...defaultAdvanced, ...initial.advanced } : { ...defaultAdvanced },
   }
@@ -58,8 +55,6 @@ function toNewRunFormData(f: PromptFormState): NewRunFormData {
     prompt: f.prompt,
     email: f.email,
     model: f.model,
-    baseModelFile: f.baseModelFiles[0],
-    referenceImages: f.referenceImages,
     dataSources: f.dataSources,
     advanced: f.advanced,
   }
@@ -169,23 +164,6 @@ export function PromptForm({ onSuccess, initialData }: PromptFormProps) {
       </div>
 
       <ModelSelector value={form.model} onChange={(m) => setForm((f) => ({ ...f, model: m }))} />
-
-      <FileUploadZone
-        label="Base model (optional)"
-        description=".pth, .pt, or .onnx files"
-        accept=".pth,.pt,.onnx"
-        multiple={false}
-        maxFiles={1}
-        value={form.baseModelFiles}
-        onChange={(files) => setForm((f) => ({ ...f, baseModelFiles: files }))}
-      />
-
-      <FileUploadZone
-        label="Reference images"
-        description="Sample images for each class"
-        value={form.referenceImages}
-        onChange={(files) => setForm((f) => ({ ...f, referenceImages: files }))}
-      />
 
       <div className="space-y-4">
         <Label>Data sources</Label>

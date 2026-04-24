@@ -1,6 +1,7 @@
 beautifulsoup4
 duckduckgo_search==8.1.1
 fastapi==0.132.0
+groq>=0.11.0
 httpcore==1.0.9
 httpx==0.28.1
 json_repair==0.58.5
@@ -10,8 +11,8 @@ onnx2torch
 pillow==12.1.1
 playwright
 pydantic==2.12.5
-pytest>=8.0.0
 python-dotenv==1.2.2
+pytest>=8.0.0
 scikit-learn==1.7.2
 six
 requests==2.32.5
@@ -19,6 +20,6 @@ diffusers>=0.37.0
 huggingface_hub>=0.20.0
 safetensors>=0.4.0
 torch==2.10.0
-transformers>=4.45.0
+transformers>=4.40.0
 torch-vision
 uvicorn==0.41.0

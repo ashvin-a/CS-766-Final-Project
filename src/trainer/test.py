@@ -100,7 +100,7 @@ def plot_confusion_matrix(labels, preds, class_names, title: str, output_path: s
     plt.tight_layout()
     plt.savefig(output_path, dpi=150)
     print(f"Confusion matrix saved to {output_path}")
-
+    return cm.tolist()
 
 def plot_comparison(class_names, base_labels, base_preds, ft_labels, ft_preds, output_path: str):
     """Bar chart comparing per-class accuracy between baseline and finetuned model."""
@@ -177,9 +177,9 @@ def main():
     print_report(base_labels, base_preds, class_names, f"Baseline Model ({arch_value} ImageNet pretrained + random head)")
 
     base_cm_path = os.path.join(TRAINER_DIR, "confusion_matrix_baseline.png")
-    plot_confusion_matrix(
+    base_confusion_matrix = plot_confusion_matrix(
         base_labels, base_preds, class_names,
-        title="Confusion Matrix — Baseline ResNet-50 (untrained head)",
+        title=f"Confusion Matrix — Baseline {arch_value} (untrained head)",
         output_path=base_cm_path,
     )
 
@@ -190,9 +190,9 @@ def main():
     print_report(ft_labels, ft_preds, class_names, "Finetuned Model")
 
     ft_cm_path = os.path.join(TRAINER_DIR, "confusion_matrix_finetuned.png")
-    plot_confusion_matrix(
+    finetuned_confusion_matrix = plot_confusion_matrix(
         ft_labels, ft_preds, class_names,
-        title="Confusion Matrix — Finetuned ResNet-50",
+        title=f"Confusion Matrix — Finetuned {arch_value} Model",
         output_path=ft_cm_path,
     )
 
@@ -207,4 +207,7 @@ def main():
     print(f"  Baseline accuracy : {base_overall:.2f}%")
     print(f"  Finetuned accuracy: {ft_overall:.2f}%")
     print(f"  Delta             : {delta:+.2f}%")
-
+    return {"baseline_accuracy": f"{base_overall:.2f}", 
+            "baseline_cm": base_confusion_matrix,
+            "finetuned_cm": finetuned_confusion_matrix,
+            "finetune_accuracy": f"{ft_overall:.2f}"}

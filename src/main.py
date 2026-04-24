@@ -74,8 +74,8 @@ def run(req: RunRequest):
     max_confidence = trainer.finetune_model(epochs=12, required_class_names=class_names, output_model_path="", model_architecture=req.model)
     end_time = time()
     total_time = end_time - start_time
-    search_query_list = [query for query in search_queries.values()]
-    return {"classes": class_names, "code": 200, "searchPrompts": f"{search_query_list}", "diffusionPrompts":[], "confidence": max_confidence, "total_time": total_time}
+    # search_query_list = [query for query in search_queries.values()]
+    return {"classes": class_names, "code": 200, "confidence": max_confidence, "total_time": total_time}
 
 
 @app.post("/parse-user-prompt/")
@@ -85,8 +85,13 @@ def orchestrator(user_prompt: str) -> dict:
 
 @app.post("/test/")
 def accuracy_test():
-    test_run()
-    return {"success": True, "message":"Confusion matrix generated", "code": 200}
+    response = test_run()
+    return {"success": True, 
+            "baseline_cm": response.get("baseline_cm"),
+            "finetuned_cm": response.get("finetuned_cm"),
+            "baseline_accuracy": response.get("baseline_accuracy"),
+            "finetune_accuracy": response.get("finetune_accuracy"),
+            "message":"Confusion matrix generated", "code": 200}
 
 
 
