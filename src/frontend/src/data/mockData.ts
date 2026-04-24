@@ -36,12 +36,10 @@ export const DEMO_PRESETS = [
 ] as const
 
 export const VISION_MODELS = [
-  { value: "resnet50", label: "ResNet50" },
   { value: "mobilenetv3", label: "MobileNetV3" },
   { value: "efficientnet_b0", label: "EfficientNet-B0" },
-  { value: "vit_b16", label: "ViT-B/16" },
-  { value: "clip_classifier", label: "CLIP-based classifier" },
-  { value: "custom_onnx", label: "Custom ONNX upload" },
+  { value: "convnext", label: "ConvNeXt" },
+  { value: "resnet50", label: "ResNet50" },
 ] as const
 
 export const PIPELINE_STAGES: Omit<PipelineStageInfo, "status" | "progress" | "details" | "error">[] = [

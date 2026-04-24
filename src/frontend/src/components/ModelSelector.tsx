@@ -24,12 +24,16 @@ export function ModelSelector({ value, onChange, disabled }: ModelSelectorProps)
         onValueChange={(v) => onChange(v as VisionModel)}
         disabled={disabled}
       >
-        <SelectTrigger>
+        <SelectTrigger className="bg-black text-white border-zinc-700">
           <SelectValue placeholder="Select model" />
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent className="bg-black text-white border-zinc-700">
           {VISION_MODELS.map((m) => (
-            <SelectItem key={m.value} value={m.value}>
+            <SelectItem
+              key={m.value}
+              value={m.value}
+              className="text-white focus:bg-zinc-800 focus:text-white data-[highlighted]:bg-zinc-800 data-[highlighted]:text-white"
+            >
               {m.label}
             </SelectItem>
           ))}

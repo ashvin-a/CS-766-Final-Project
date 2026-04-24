@@ -114,12 +114,24 @@ export async function submitSampleRunConfiguration(
   }
 }
 
-/** Legacy full pipeline run (prompt + model only). */
+/** Legacy full pipeline run (prompt + model + source toggles). */
 export async function submitNewRun(data: NewRunFormData): Promise<{ runId: string }> {
+  const sourceFlags = {
+    web_scraping: data.dataSources.webScraping,
+    diffusion: data.dataSources.syntheticGeneration,
+    augmentation: data.dataSources.augmentation,
+    clip_filter: data.dataSources.clipFiltering,
+  }
+
   const res = await fetch(`${API_BASE}/run/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ user_prompt: data.prompt, model: data.model }),
+    body: JSON.stringify({
+      user_prompt: data.prompt,
+      model: data.model,
+      ...sourceFlags,
+      dataSources: data.dataSources,
+    }),
   })
   const json = (await res.json()) as { success?: boolean; message?: string }
   if (!res.ok || json.success === false) {

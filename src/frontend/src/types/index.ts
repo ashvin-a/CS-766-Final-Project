@@ -28,6 +28,7 @@ export type VisionModel =
   | "resnet50"
   | "mobilenetv3"
   | "efficientnet_b0"
+  | "convnext"
   | "vit_b16"
   | "clip_classifier"
   | "custom_onnx"
