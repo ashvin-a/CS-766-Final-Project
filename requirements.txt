@@ -12,6 +12,7 @@ pillow==12.1.1
 playwright
 pydantic==2.12.5
 python-dotenv==1.2.2
+pytest>=8.0.0
 scikit-learn==1.7.2
 six
 requests==2.32.5

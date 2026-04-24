@@ -18,5 +18,15 @@ class Settings:
     DB_PATH: str = os.getenv("DB_PATH", "image_scraper.db")
     USER_AGENT = os.getenv("USER_AGENT")
 
+    # CLIP relevance filtering (see filters/clip_relevance.py)
+    CLIP_MODEL_ID: str = os.getenv("CLIP_MODEL_ID", "openai/clip-vit-base-patch32")
+    RELEVANCE_THRESHOLD: float = float(os.getenv("RELEVANCE_THRESHOLD", "0.22"))
+    MIN_IMAGES_AFTER_FILTER: int = int(os.getenv("MIN_IMAGES_AFTER_FILTER", "3"))
+    ENABLE_RELEVANCE_FILTER: bool = os.getenv("ENABLE_RELEVANCE_FILTER", "true").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+
 
 settings = Settings()
