@@ -37,7 +37,14 @@ def run(req: RunRequest):
             if response.get("code") == 400:
                 return {"success": False, "code": 400}
 #########
-    if settings.ENABLE_RELEVANCE_FILTER:
+    # Per-request override of the CLIP relevance filter. When the request
+    # doesn't specify one, fall back to the global setting.
+    run_relevance_filter = (
+        req.enable_relevance_filter
+        if req.enable_relevance_filter is not None
+        else settings.ENABLE_RELEVANCE_FILTER
+    )
+    if run_relevance_filter:
         relevance_summary = verify_downloads_for_classes(
             settings.DOWNLOAD_DIR,
             class_names,
