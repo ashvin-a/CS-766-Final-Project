@@ -28,10 +28,9 @@ class AdvancedSettings(BaseModel):
 
 
 class RunRequest(BaseModel):
-    user_prompt: str
+    prompt: str
+    email: Optional[str] = None
     model: Models
-    # If provided, overrides settings.ENABLE_RELEVANCE_FILTER for this run.
-    # True  -> run CLIP-based relevance filtering before split/augmentation
-    # False -> skip filtering and go straight to split/augmentation
-    enable_relevance_filter: Optional[bool] = None
+    dataSources: DataSources = DataSources()
+    advanced: AdvancedSettings = AdvancedSettings()
 
