@@ -9,6 +9,9 @@ from typing import Optional, Union
 from groq import Groq
 from dotenv import load_dotenv
 from huggingface_hub import InferenceClient
+from utils import CustomLLM
+from config import settings
+import json
 
 # src/ — so `import config` resolves to src/config.py
 _SRC = Path(__file__).resolve().parents[1]
@@ -77,23 +80,45 @@ def flux_api_hf(
     image.save(out)
     return image
 
+def generate_base_prompt(class_name: str) -> str:
+    llm = CustomLLM(
+        endpoint=settings.GROQ_ENDPOINT,
+        model_name="openai/gpt-oss-120b",
+    )
+    response = llm.invoke(
+    system_prompt="""
+        You are an expert prompt engineer who knows how to prompt to generate
+        realistic life like images using diffusion models. The user will provide
+        you the class of the image that needs to be generated. Your output will 
+        be a json that will have the key "response" and the value to it will be 
+        key to this
+
+        ## Sample Output
+        {
+        "response" : "<the output prompt>"
+        }
+    """,
+    prompt=class_name)
+
+    prompt = json.loads(response).get("response")
+
+    return prompt
+
 def generate_diffusion_dataset(
-    base_prompt: str,
+    class_name: str,
     model_id: str = "black-forest-labs/FLUX.1-schnell",
 ) -> Path:
     _REPO = Path(__file__).resolve().parents[2]
+    base_prompt = generate_base_prompt(class_name=class_name)
     prompts_gen = prompt_variations(base_prompt)
     run_hash = hashlib.sha256(
         f"{base_prompt}{secrets.token_hex(8)}".encode()
     ).hexdigest()[:12]
-    out_dir = _REPO / "diffusion_generation" / f"diffusion_generation_{run_hash}"
+    out_dir = _REPO / "downloads" / class_name / f"diffusion_generation_{run_hash}"
     out_dir.mkdir(parents=True, exist_ok=True)
     for n, prompt in enumerate(prompts_gen, start=1):
         out_path = out_dir / f"diffusion_generation_{run_hash}_{n:04d}.png"
         flux_api_hf(prompt, "black-forest-labs/FLUX.1-schnell", out_path)
-        print(f"Image saved to {out_path}")
-        print("Prompt: " + prompt)
-        print("--------------------------------")
     print(f"All images saved under {out_dir}")
     return out_dir
 
@@ -101,7 +126,7 @@ def generate_diffusion_dataset(
 
 
 if __name__ == "__main__":
-    generate_diffusion_dataset("semi HD, realistic, photo of a man with a beard")
+    generate_diffusion_dataset(class_name="cat")
 
 
 

@@ -10,7 +10,7 @@ logging.basicConfig(
 
 class Settings:
     GROQ_API_KEY = os.getenv("GROQ_API_KEY_1")
-    GROQ_ENDPOINT = os.getenv("GROQ_ENDPOINT")
+    GROQ_ENDPOINT = os.getenv("GROQ_ENDPOINT", "")
     DEBUG = os.getenv("DEBUG", "False").lower() == "true"
     MAX_IMAGES: int = int(os.getenv("MAX_IMAGES", 20))
     REQUEST_TIMEOUT: int = int(os.getenv("REQUEST_TIMEOUT", 30))

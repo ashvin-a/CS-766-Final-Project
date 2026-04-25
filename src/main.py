@@ -9,6 +9,7 @@ from time import time
 from utils import RunRequest
 from config import settings
 from filters import verify_downloads_for_classes
+from diffusion import generate_diffusion_dataset
 
 app = FastAPI()
 
@@ -24,7 +25,7 @@ app.add_middleware(
 
 @app.post("/run/")
 def run(req: RunRequest):
-    user_prompt = req.user_prompt
+    user_prompt = req.prompt
     start_time = time()
     response = parse_user_prompt(user_prompt=user_prompt)
     search_queries: dict = response.get("search_queries")
@@ -34,16 +35,13 @@ def run(req: RunRequest):
             response = scraper_main.main(
                 class_name=class_name, keyword=keyword, mode="local"
             )
+            if req.dataSources.syntheticGeneration:
+                generate_diffusion_dataset(class_name=class_name)
             if response.get("code") == 400:
                 return {"success": False, "code": 400}
-#########
     # Per-request override of the CLIP relevance filter. When the request
     # doesn't specify one, fall back to the global setting.
-    run_relevance_filter = (
-        req.enable_relevance_filter
-        if req.enable_relevance_filter is not None
-        else settings.ENABLE_RELEVANCE_FILTER
-    )
+    run_relevance_filter = req.dataSources.clipFiltering or settings.ENABLE_RELEVANCE_FILTER
     if run_relevance_filter:
         relevance_summary = verify_downloads_for_classes(
             settings.DOWNLOAD_DIR,
@@ -67,11 +65,12 @@ def run(req: RunRequest):
     # Split scraped images into train / test, then augment training set only
     data_gen = DataGenerator(source_dir=settings.DOWNLOAD_DIR)
     data_gen.split_dataset()
-    data_gen.augment_training_data(copies_per_image=5)
+    if req.dataSources.augmentation:
+        data_gen.augment_training_data(copies_per_image=5)
 
     # Finetune the model on training split only
     trainer = Trainer()
-    max_confidence = trainer.finetune_model(epochs=12, required_class_names=class_names, output_model_path="", model_architecture=req.model)
+    max_confidence = trainer.finetune_model(epochs=req.advanced.epochs, required_class_names=class_names, output_model_path="", model_architecture=req.model)
     end_time = time()
     total_time = end_time - start_time
     # search_query_list = [query for query in search_queries.values()]

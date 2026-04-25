@@ -9,6 +9,24 @@ class Models(enum.Enum):
     CONV_NEXT = "ConvNeXt"
 
 
+class DataSources(BaseModel):
+    webScraping: bool = True
+    syntheticGeneration: bool = False
+    augmentation: bool = False
+    clipFiltering: bool = False
+
+
+class AdvancedSettings(BaseModel):
+    datasetSizeTarget: int = 1000
+    augmentationStrength: float = 0.5
+    clipThreshold: float = 0.7
+    freezeBackbone: bool = False
+    epochs: int = 12
+    batchSize: int = 32
+    learningRate: float = 0.0001
+    deliveryFormat: str = "pytorch"
+
+
 class RunRequest(BaseModel):
     user_prompt: str
     model: Models
