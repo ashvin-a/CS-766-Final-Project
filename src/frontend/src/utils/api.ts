@@ -123,6 +123,7 @@ export async function submitSampleRunConfiguration(
 export async function submitNewRun(
   data: NewRunFormData
 ): Promise<{ runId: string; message?: string }> {
+  const backendModel = data.model === "convnext" ? "ConvNeXt" : data.model
   const sourceFlags = {
     web_scraping: data.dataSources.webScraping,
     diffusion: data.dataSources.syntheticGeneration,
@@ -130,23 +131,57 @@ export async function submitNewRun(
     clip_filter: data.dataSources.clipFiltering,
   }
 
-  const res = await fetch(`${API_BASE}/run/`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      user_prompt: data.prompt,
-      model: data.model,
-      ...sourceFlags,
-      dataSources: data.dataSources,
-    }),
-  })
-  const json = (await res.json()) as { success?: boolean; message?: string }
-  if (!res.ok || json.success === false) {
-    throw new SubmitRunError(json.message ?? res.statusText ?? "Run failed", res.status, json)
+  let res: Response
+  try {
+    res = await fetch(`${API_BASE}/run/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        prompt: data.prompt,
+        model: backendModel,
+        ...sourceFlags,
+        dataSources: data.dataSources,
+        advanced: data.advanced,
+        email: data.email || undefined,
+      }),
+    })
+  } catch (e) {
+    throw new SubmitRunError(
+      e instanceof Error ? `Network error: ${e.message}` : "Network error: could not reach server",
+      undefined,
+      e
+    )
+  }
+
+  const rawText = await res.text()
+  let parsed: Record<string, unknown> = {}
+  if (rawText) {
+    try {
+      parsed = JSON.parse(rawText) as Record<string, unknown>
+    } catch {
+      parsed = { message: rawText }
+    }
+  }
+
+  if (!res.ok || parsed.success === false) {
+    const detail = parsed.detail ?? parsed.message ?? rawText
+    const msg =
+      typeof detail === "string"
+        ? detail
+        : Array.isArray(detail)
+          ? detail
+              .map((d) =>
+                typeof d === "object" && d && "msg" in d
+                  ? String((d as { msg: unknown }).msg)
+                  : String(d)
+              )
+              .join("; ")
+          : res.statusText || "Run failed"
+    throw new SubmitRunError(msg, res.status, parsed)
   }
   return {
     runId: "run-" + Date.now(),
-    message: typeof json.message === "string" ? json.message : undefined,
+    message: typeof parsed.message === "string" ? parsed.message : undefined,
   }
 }
 
