@@ -12,6 +12,7 @@ from huggingface_hub import InferenceClient
 from utils import CustomLLM
 from config import settings
 import json
+from json_repair import repair_json
 
 # src/ — so `import config` resolves to src/config.py
 _SRC = Path(__file__).resolve().parents[1]
@@ -23,23 +24,41 @@ _ROOT = Path(__file__).resolve().parents[2]
 load_dotenv(_ROOT / ".env")
 
 def prompt_variations(_prompt: str):
-    groq_api_key = os.environ.get("GROQ_API_KEY") or os.environ.get("GROQ_API_KEY_1")
+    groq_api_key = settings.GROQ_API_KEY
     if not groq_api_key:
         raise RuntimeError(
             f"Set GROQ_API_KEY (or GROQ_API_KEY_1) in {_ROOT / '.env'} or export it in your shell."
         )
     client = Groq(api_key=groq_api_key)
+    content = """
+    Act as a prompt engineer and make 100 different variations of the prompt for generating 
+    a dataset for vision training: 
+        {_prompt} 
+    return the variations in a list of strings, each string should be a different variation of the prompt.
+    make sure that the variations are not too similar to each other yet the context of the image does not change
+    optimize for token usage and keep the prompt short and concise and mention to keep the quality of the image 
+    medium with 480x480 resolution
+    
+    Your output should STRICTLY be a json with key as "prompts" and the value should be 
+    a list in which each entry should be the prompt.
+
+    # Sample output
+    {{
+    "prompts" : ["Prompt number 1", "Prompt number 2"]
+    }}
+    """
     completion = client.chat.completions.create(
-    model="llama-3.1-8b-instant",
+    model="openai/gpt-oss-120b",
     messages=[
         {
             "role": "user",
-            "content": "Act as a prompt engineer and make 100 different variations of the prompt for generating a dataset for vision training: " + _prompt +"\n"+ "return the variations in a list of strings, each string should be a different variation of the prompt"+"make sure that the variations are not too similar to each other yet the context of the image does not change"+"optimize for toekn usage and keep the prompt short and concise and mention to keep the quality of the image medium with 480x480 resolution"
+            "content": content.format(_prompt=_prompt)
         }
     ]
 )
     content = completion.choices[0].message.content or ""
-    return content.split(",")
+    content = json.loads(repair_json(content))
+    return content.get("prompts")
     
     # print(settings.GROQ_API_KEY)
     # print(settings.GROQ_ENDPOINT)
@@ -58,7 +77,7 @@ def flux_api_hf(
     model_id: str,
     output_path: Optional[Union[str, Path]] = None,
 ):
-    HF_token = os.environ.get("HF_token")
+    HF_token = settings.HF_TOKEN
     if not HF_token:
         raise RuntimeError(
             f"Set HF_token in {_ROOT / '.env'} (see .env.example) or export HF_token in your shell."
@@ -106,15 +125,20 @@ def generate_base_prompt(class_name: str) -> str:
 
 def generate_diffusion_dataset(
     class_name: str,
+    image_count: int,
+    is_web_scraping_enabled: bool,
     model_id: str = "black-forest-labs/FLUX.1-schnell",
 ) -> Path:
     _REPO = Path(__file__).resolve().parents[2]
     base_prompt = generate_base_prompt(class_name=class_name)
-    prompts_gen = prompt_variations(base_prompt)
+    prompts_gen = prompt_variations(base_prompt)[:image_count]
     run_hash = hashlib.sha256(
         f"{base_prompt}{secrets.token_hex(8)}".encode()
     ).hexdigest()[:12]
-    out_dir = _REPO / "downloads" / class_name / f"diffusion_generation_{run_hash}"
+    if not is_web_scraping_enabled:
+        out_dir = _REPO / "downloads" / "train" / class_name
+    else:
+        out_dir = _REPO / "downloads" / class_name
     out_dir.mkdir(parents=True, exist_ok=True)
     for n, prompt in enumerate(prompts_gen, start=1):
         out_path = out_dir / f"diffusion_generation_{run_hash}_{n:04d}.png"

@@ -17,6 +17,7 @@ class Settings:
     DOWNLOAD_DIR: str = os.getenv("DOWNLOAD_DIR", "downloads")
     DB_PATH: str = os.getenv("DB_PATH", "image_scraper.db")
     USER_AGENT = os.getenv("USER_AGENT")
+    HF_TOKEN = os.getenv("HF_TOKEN")
 
     # CLIP relevance filtering (see filters/clip_relevance.py)
     CLIP_MODEL_ID: str = os.getenv("CLIP_MODEL_ID", "openai/clip-vit-base-patch32")
