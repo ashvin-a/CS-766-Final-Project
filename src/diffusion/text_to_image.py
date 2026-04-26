@@ -4,12 +4,13 @@ import sys
 
 from dotenv import load_dotenv
 
-# Repo root: load .env so HF_token is available (file is gitignored; use .env.example as template)
+# Repo root: load .env so HF_TOKEN is available (file is gitignored; use .env.example as template)
 _ROOT = Path(__file__).resolve().parents[2]
 load_dotenv(_ROOT / ".env")
-HF_token = os.environ.get("HF_token")
+# Accept either casing for backward compatibility but prefer the canonical
+# uppercase form that huggingface_hub / diffusers themselves read.
+HF_token = os.environ.get("HF_TOKEN") or os.environ.get("HF_token")
 if HF_token:
-    # huggingface_hub and diffusers also read HF_TOKEN
     os.environ.setdefault("HF_TOKEN", HF_token)
 
 # Repo-root/vendor diffusers checkout (editable install target). Ensures `import diffusers` works

@@ -77,15 +77,16 @@ def flux_api_hf(
     model_id: str,
     output_path: Optional[Union[str, Path]] = None,
 ):
-    HF_token = settings.HF_TOKEN
-    if not HF_token:
+    hf_token = settings.HF_TOKEN
+    if not hf_token:
         raise RuntimeError(
-            f"Set HF_token in {_ROOT / '.env'} (see .env.example) or export HF_token in your shell."
+            f"Set HF_TOKEN in {_ROOT / '.env'} (see .env.example) or export HF_TOKEN in your shell. "
+            f"Note: env var names are case-sensitive — `HF_token` (lowercase) will NOT be picked up."
         )
 
     client = InferenceClient(
         provider="hf-inference",
-        api_key=HF_token,
+        api_key=hf_token,
     )
 
     # output is a PIL.Image object

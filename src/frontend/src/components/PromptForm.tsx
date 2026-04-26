@@ -30,7 +30,7 @@ const PROMPT_PLACEHOLDERS = [
 
 const defaultAdvanced: PromptFormState["advanced"] = {
   datasetSizeTarget: 1000,
-  augmentationStrength: 0.5,
+  augmentationStrength: 40,
   clipThreshold: 0.7,
   freezeBackbone: false,
   epochs: 10,
