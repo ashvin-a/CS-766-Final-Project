@@ -57,9 +57,15 @@ class CLIPRelevanceVerifier:
 
         image_path = Path(image_path)
         try:
-            image = Image.open(image_path).convert("RGB")
-        except OSError as e:
-            logger.warning("Cannot open image %s: %s", image_path, e)
+            with Image.open(image_path) as img:
+                img.load()
+                image = img.convert("RGB")
+        except Exception as e:
+            logger.warning("Removing corrupt image %s: %s", image_path, e)
+            try:
+                image_path.unlink()
+            except OSError:
+                pass
             raise
 
         inputs = self._processor(
@@ -112,8 +118,8 @@ class CLIPRelevanceVerifier:
         for img_path in files:
             try:
                 score = self.similarity(img_path, text_probe)
-            except OSError:
-                skipped += 1
+            except Exception:
+                removed += 1
                 continue
 
             if score < min_score:
@@ -159,11 +165,12 @@ def verify_downloads_for_classes(
 
     for class_name in class_names:
         folder_name = LocalStorage._sanitize(class_name)
-        class_dir = download_root / folder_name
-        probe = make_text_probe(class_name, user_prompt)
-        summary[class_name] = verifier.filter_class_folder(
-            class_dir, probe, min_score=min_score
-        )
+        for t in ["train", "test"]:
+            class_dir = download_root / t / folder_name
+            probe = make_text_probe(class_name, user_prompt)
+            summary[f"{class_name}_{t}"] = verifier.filter_class_folder(
+                class_dir, probe, min_score=min_score
+            )
 
     return summary
 
@@ -228,28 +235,29 @@ if __name__ == "__main__":
     if args.dry_run:
         verifier = CLIPRelevanceVerifier()
         for class_name in args.classes:
-            class_dir = root / LocalStorage._sanitize(class_name)
-            probe = make_text_probe(class_name, args.user_prompt)
-            print(
-                f"\n{class_name!r}  dir={class_dir}  "
-                f"min_score={min_score}  probe={probe!r}"
-            )
-            if not class_dir.is_dir():
-                print("  (directory missing — nothing to score)")
-                continue
-            files = sorted(
-                f
-                for f in class_dir.iterdir()
-                if f.is_file() and f.suffix.lower() in IMAGE_EXTENSIONS
-            )
-            for img_path in files:
-                try:
-                    s = verifier.similarity(img_path, probe)
-                except OSError as e:
-                    print(f"  skip   {img_path.name}  ({e})")
+            for t in  ["train", "test"]:
+                class_dir = root / t / LocalStorage._sanitize(class_name)
+                probe = make_text_probe(class_name, args.user_prompt)
+                print(
+                    f"\n{class_name!r}  dir={class_dir}  "
+                    f"min_score={min_score}  probe={probe!r}"
+                )
+                if not class_dir.is_dir():
+                    print("  (directory missing — nothing to score)")
                     continue
-                decision = "keep" if s >= min_score else "remove"
-                print(f"  {s:7.4f}  {decision:6}  {img_path.name}")
+                files = sorted(
+                    f
+                    for f in class_dir.iterdir()
+                    if f.is_file() and f.suffix.lower() in IMAGE_EXTENSIONS
+                )
+                for img_path in files:
+                    try:
+                        s = verifier.similarity(img_path, probe)
+                    except Exception as e:
+                        print(f"  corrupt/removed  {img_path.name}  ({e})")
+                        continue
+                    decision = "keep" if s >= min_score else "remove"
+                    print(f"  {s:7.4f}  {decision:6}  {img_path.name}")
         sys.exit(0)
 
     summary = verify_downloads_for_classes(

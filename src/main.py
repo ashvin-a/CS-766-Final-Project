@@ -40,6 +40,9 @@ def run(req: RunRequest):
                     return {"success": False, "code": 400}
         if req.dataSources.syntheticGeneration:
             generate_diffusion_dataset(class_name=class_name)
+    # Split scraped images into train / test, then augment training set only
+    data_gen = DataGenerator(source_dir=settings.DOWNLOAD_DIR)
+    data_gen.split_dataset()
     # Per-request override of the CLIP relevance filter. When the request
     # doesn't specify one, fall back to the global setting.
     run_relevance_filter = req.dataSources.clipFiltering
@@ -63,9 +66,6 @@ def run(req: RunRequest):
                     "relevance_summary": relevance_summary,
                 }
 ########################
-    # Split scraped images into train / test, then augment training set only
-    data_gen = DataGenerator(source_dir=settings.DOWNLOAD_DIR)
-    data_gen.split_dataset()
     if req.dataSources.augmentation:
         data_gen.augment_training_data(copies_per_image=5)
 
