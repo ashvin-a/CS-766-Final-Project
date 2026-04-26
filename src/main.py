@@ -32,16 +32,17 @@ def run(req: RunRequest):
     class_names: list = response.get("classes")
     for class_name, keywords in search_queries.items():
         for keyword in keywords:
-            response = scraper_main.main(
-                class_name=class_name, keyword=keyword, mode="local"
-            )
-            if req.dataSources.syntheticGeneration:
-                generate_diffusion_dataset(class_name=class_name)
-            if response.get("code") == 400:
-                return {"success": False, "code": 400}
+            if req.dataSources.webScraping:
+                response = scraper_main.main(
+                    class_name=class_name, keyword=keyword, mode="local"
+                )
+                if response.get("code") == 400:
+                    return {"success": False, "code": 400}
+        if req.dataSources.syntheticGeneration:
+            generate_diffusion_dataset(class_name=class_name)
     # Per-request override of the CLIP relevance filter. When the request
     # doesn't specify one, fall back to the global setting.
-    run_relevance_filter = req.dataSources.clipFiltering or settings.ENABLE_RELEVANCE_FILTER
+    run_relevance_filter = req.dataSources.clipFiltering
     if run_relevance_filter:
         relevance_summary = verify_downloads_for_classes(
             settings.DOWNLOAD_DIR,

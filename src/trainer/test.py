@@ -102,7 +102,7 @@ def plot_confusion_matrix(labels, preds, class_names, title: str, output_path: s
     print(f"Confusion matrix saved to {output_path}")
     return cm.tolist()
 
-def plot_comparison(class_names, base_labels, base_preds, ft_labels, ft_preds, output_path: str):
+def plot_comparison(class_names, base_labels, base_preds, ft_labels, ft_preds, output_path: str, arch_value):
     """Bar chart comparing per-class accuracy between baseline and finetuned model."""
     n = len(class_names)
 
@@ -128,7 +128,7 @@ def plot_comparison(class_names, base_labels, base_preds, ft_labels, ft_preds, o
 
     ax.set_xlabel("Class")
     ax.set_ylabel("Accuracy (%)")
-    ax.set_title("Per-Class Accuracy: Baseline vs Finetuned ResNet-50")
+    ax.set_title(f"Per-Class Accuracy: Baseline vs Finetuned {arch_value}")
     ax.set_xticks(x)
     ax.set_xticklabels(class_names, rotation=30, ha="right")
     ax.set_ylim(0, 110)
@@ -198,7 +198,7 @@ def main():
 
     # Comparison b/w finetuned and baseline
     compare_path = os.path.join(TRAINER_DIR, "comparison_baseline_vs_finetuned.png")
-    plot_comparison(class_names, base_labels, base_preds, ft_labels, ft_preds, compare_path)
+    plot_comparison(class_names, base_labels, base_preds, ft_labels, ft_preds, compare_path, arch_value)
 
     base_overall = 100 * (base_labels == base_preds).sum() / len(base_labels)
     ft_overall = 100 * (ft_labels == ft_preds).sum() / len(ft_labels)
