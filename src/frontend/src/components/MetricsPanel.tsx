@@ -10,6 +10,29 @@ interface MetricsPanelProps {
 }
 
 export function MetricsPanel({ result }: MetricsPanelProps) {
+  const renderMatrix = (title: string, matrix: number[][]) => (
+    <div>
+      <p className="mb-2 text-sm text-muted-foreground">{title}</p>
+      <div className="inline-block rounded-lg border p-2 font-mono text-sm">
+        {matrix.map((row, i) => (
+          <div key={i} className="flex gap-2">
+            {row.map((cell, j) => (
+              <span
+                key={j}
+                className={cn(
+                  "w-8 text-center",
+                  i === j && "font-bold text-primary"
+                )}
+              >
+                {cell}
+              </span>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+
   return (
     <div className="space-y-6">
       <Card>
@@ -33,30 +56,14 @@ export function MetricsPanel({ result }: MetricsPanelProps) {
               </div>
             )}
           </div>
-          {result.confusionMatrix && (
-            <div>
-              <p className="mb-2 text-sm text-muted-foreground">
-                Confusion matrix
-              </p>
-              <div className="inline-block rounded-lg border p-2 font-mono text-sm">
-                {result.confusionMatrix.map((row, i) => (
-                  <div key={i} className="flex gap-2">
-                    {row.map((cell, j) => (
-                      <span
-                        key={j}
-                        className={cn(
-                          "w-8 text-center",
-                          i === j && "font-bold text-primary"
-                        )}
-                      >
-                        {cell}
-                      </span>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          {result.baselineConfusionMatrix &&
+            renderMatrix("Baseline confusion matrix", result.baselineConfusionMatrix)}
+          {result.finetunedConfusionMatrix &&
+            renderMatrix("Finetuned confusion matrix", result.finetunedConfusionMatrix)}
+          {!result.baselineConfusionMatrix &&
+            !result.finetunedConfusionMatrix &&
+            result.confusionMatrix &&
+            renderMatrix("Confusion matrix", result.confusionMatrix)}
         </CardContent>
       </Card>
 

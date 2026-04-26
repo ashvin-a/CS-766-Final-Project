@@ -24,7 +24,12 @@ const API_BASE = "http://localhost:8000"
 
 //change this line to connect to the bin "https://httpbin.org/post" or local host or vite
 const SAMPLE_RUN_URL =
-  import.meta.env.VITE_SAMPLE_RUN_URL ??"http://localhost:8000"
+  import.meta.env.VITE_SAMPLE_RUN_URL ??"http://localhost:8000/run"
+const RESULTS_URL = `${API_BASE}/test/`
+
+const LATEST_RUN_ID_KEY = "latestRunId"
+const RESULTS_READY_KEY = "resultsReady"
+const RESULTS_CACHE_KEY = "latestRunResult"
 
 export class SubmitRunError extends Error {
   constructor(
@@ -115,7 +120,9 @@ export async function submitSampleRunConfiguration(
 }
 
 /** Legacy full pipeline run (prompt + model + source toggles). */
-export async function submitNewRun(data: NewRunFormData): Promise<{ runId: string }> {
+export async function submitNewRun(
+  data: NewRunFormData
+): Promise<{ runId: string; message?: string }> {
   const sourceFlags = {
     web_scraping: data.dataSources.webScraping,
     diffusion: data.dataSources.syntheticGeneration,
@@ -137,7 +144,10 @@ export async function submitNewRun(data: NewRunFormData): Promise<{ runId: strin
   if (!res.ok || json.success === false) {
     throw new SubmitRunError(json.message ?? res.statusText ?? "Run failed", res.status, json)
   }
-  return { runId: "run-" + Date.now() }
+  return {
+    runId: "run-" + Date.now(),
+    message: typeof json.message === "string" ? json.message : undefined,
+  }
 }
 
 export async function parsePrompt(prompt: string): Promise<ParsedPrompt> {
@@ -167,11 +177,92 @@ export async function getTrainingRuns(): Promise<TrainingRun[]> {
   return MOCK_TRAINING_RUNS
 }
 
-export async function getRunResult(_runId: string): Promise<RunResult | null> {
-  // TODO: GET ${API_BASE}/runs/${runId}/result
-  await delay(300)
-  if (_runId === "run-001") return MOCK_RUN_RESULT
+function parseMaybePercent(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value > 1 ? value / 100 : value
+  }
+  if (typeof value === "string") {
+    const parsed = Number.parseFloat(value)
+    if (Number.isFinite(parsed)) {
+      return parsed > 1 ? parsed / 100 : parsed
+    }
+  }
   return null
+}
+
+export async function getRunResult(runId: string): Promise<RunResult | null> {
+  let res: Response
+  try {
+    // Backend currently exposes /test/ for result payload.
+    res = await fetch(RESULTS_URL, { method: "GET" })
+  } catch {
+    return runId === "run-001" ? MOCK_RUN_RESULT : null
+  }
+
+  if (!res.ok) {
+    return runId === "run-001" ? MOCK_RUN_RESULT : null
+  }
+
+  let body: Record<string, unknown>
+  try {
+    body = (await res.json()) as Record<string, unknown>
+  } catch {
+    return runId === "run-001" ? MOCK_RUN_RESULT : null
+  }
+
+  const hasResultShape =
+    body.success === true &&
+    Array.isArray(body.baseline_cm) &&
+    Array.isArray(body.finetuned_cm) &&
+    body.code === 200
+
+  if (!hasResultShape) {
+    return runId === "run-001" ? MOCK_RUN_RESULT : null
+  }
+
+  const baseline = parseMaybePercent(body.baseline_accuracy)
+  const finetuned = parseMaybePercent(body.finetune_accuracy)
+  if (baseline == null || finetuned == null) {
+    return runId === "run-001" ? MOCK_RUN_RESULT : null
+  }
+
+  return {
+    runId,
+    baselineAccuracy: baseline,
+    finalAccuracy: finetuned,
+    baselineConfusionMatrix: body.baseline_cm as number[][],
+    finetunedConfusionMatrix: body.finetuned_cm as number[][],
+    confusionMatrix: body.finetuned_cm as number[][],
+    emailSent: false,
+  }
+}
+
+export function markRunSubmitted(runId: string) {
+  localStorage.setItem(LATEST_RUN_ID_KEY, runId)
+  localStorage.setItem(RESULTS_READY_KEY, "false")
+}
+
+export function markRunResultReady(result: RunResult) {
+  localStorage.setItem(RESULTS_READY_KEY, "true")
+  localStorage.setItem(RESULTS_CACHE_KEY, JSON.stringify(result))
+}
+
+export function getCachedRunResult(): RunResult | null {
+  const raw = localStorage.getItem(RESULTS_CACHE_KEY)
+  if (!raw) return null
+  try {
+    return JSON.parse(raw) as RunResult
+  } catch {
+    return null
+  }
+}
+
+export function getLatestRunId(): string | null {
+  return localStorage.getItem(LATEST_RUN_ID_KEY)
+}
+
+export function isResultReady(): boolean {
+  return localStorage.getItem(RESULTS_READY_KEY) === "true"
 }
 
 export async function getBackendHealth(): Promise<{ status: string; gpuAvailable?: boolean }> {

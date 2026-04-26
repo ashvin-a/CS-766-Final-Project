@@ -88,6 +88,8 @@ export interface RunResult {
   downloadUrl?: string
   emailSent: boolean
   confusionMatrix?: number[][]
+  baselineConfusionMatrix?: number[][]
+  finetunedConfusionMatrix?: number[][]
   samplePredictions?: { imageUrl: string; predicted: string; actual: string }[]
 }
 

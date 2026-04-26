@@ -5,8 +5,8 @@ import { ParsedPromptPreview } from "@/components/ParsedPromptPreview"
 import { PipelineStepper } from "@/components/PipelineStepper"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { parsePrompt } from "@/utils/api"
-import type { NewRunFormData, ParsedPrompt } from "@/types"
+import { getRunResult, markRunResultReady, markRunSubmitted, parsePrompt } from "@/utils/api"
+import type { NewRunFormData, ParsedPrompt, RunResult } from "@/types"
 import { MOCK_PIPELINE_PROGRESS, DEMO_PRESETS } from "@/data/mockData"
 
 export function NewRun() {
@@ -15,6 +15,7 @@ export function NewRun() {
   const presetFromNav = (location.state as { preset?: { parsed: ParsedPrompt; formData: Partial<NewRunFormData> } })?.preset
   const [parsed, setParsed] = useState<ParsedPrompt | null>(presetFromNav?.parsed ?? null)
   const [formData, setFormData] = useState<Partial<NewRunFormData> | null>(presetFromNav?.formData ?? null)
+  const [sampleMode, setSampleMode] = useState(Boolean(presetFromNav))
   const [runId, setRunId] = useState<string | null>(null)
   const [pipelineStages, setPipelineStages] = useState(MOCK_PIPELINE_PROGRESS)
 
@@ -25,6 +26,7 @@ export function NewRun() {
   }, [formData?.prompt])
 
   const loadPreset = (preset: (typeof DEMO_PRESETS)[number]) => {
+    setSampleMode(true)
     setFormData({
       prompt: preset.prompt,
       email: "",
@@ -59,6 +61,10 @@ export function NewRun() {
     { runId: id }: { runId: string; message?: string }
   ) => {
     setRunId(id)
+    markRunSubmitted(id)
+    if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "default") {
+      void Notification.requestPermission()
+    }
     setParsed(await parsePrompt(data.prompt))
     setPipelineStages(
       MOCK_PIPELINE_PROGRESS.map((s, i) => ({
@@ -68,6 +74,42 @@ export function NewRun() {
       }))
     )
   }
+
+  useEffect(() => {
+    if (!runId) return
+
+    let stop = false
+    const pollEveryMs = 5000
+    const poll = async () => {
+      const result = await getRunResult(runId)
+      if (!result || stop) return
+
+      // Treat backend payload as available once it includes both confusion matrices.
+      const hasBackendResult =
+        Array.isArray(result.baselineConfusionMatrix) &&
+        Array.isArray(result.finetunedConfusionMatrix)
+
+      if (!hasBackendResult) return
+
+      markRunResultReady(result as RunResult)
+      if (typeof window !== "undefined") {
+        if ("Notification" in window && Notification.permission === "granted") {
+          new Notification("Results are available", {
+            body: "Your run metrics are ready in the Results tab.",
+          })
+        }
+      }
+      stop = true
+      clearInterval(intervalId)
+    }
+
+    poll()
+    const intervalId = window.setInterval(poll, pollEveryMs)
+    return () => {
+      stop = true
+      clearInterval(intervalId)
+    }
+  }, [runId])
 
   return (
     <div className="space-y-8 px-4 py-8">
@@ -107,7 +149,11 @@ export function NewRun() {
               <h2 className="font-semibold">Configuration</h2>
             </CardHeader>
             <CardContent>
-              <PromptForm onSuccess={handleRunSuccess} initialData={formData ?? undefined} />
+              <PromptForm
+                onSuccess={handleRunSuccess}
+                initialData={formData ?? undefined}
+                sampleMode={sampleMode}
+              />
             </CardContent>
           </Card>
         </div>

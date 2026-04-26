@@ -13,7 +13,7 @@ import {
 import { Slider } from "@/components/ui/slider"
 import { ModelSelector } from "./ModelSelector"
 import type { NewRunFormData, PromptFormState, VisionModel } from "@/types"
-import { submitSampleRunConfiguration, SubmitRunError } from "@/utils/api"
+import { submitNewRun, submitSampleRunConfiguration, SubmitRunError } from "@/utils/api"
 import { Loader2 } from "lucide-react"
 
 const PROMPT_PLACEHOLDERS = [
@@ -61,15 +61,17 @@ function toNewRunFormData(f: PromptFormState): NewRunFormData {
 }
 
 interface PromptFormProps {
-  /** Called after the sample-run API succeeds. */
+  /** Called after a submit API succeeds. */
   onSuccess?: (
     data: NewRunFormData,
     result: { runId: string; message?: string }
   ) => void | Promise<void>
   initialData?: Partial<NewRunFormData>
+  /** Force sample endpoint usage (for example/demo presets). */
+  sampleMode?: boolean
 }
 
-export function PromptForm({ onSuccess, initialData }: PromptFormProps) {
+export function PromptForm({ onSuccess, initialData, sampleMode = false }: PromptFormProps) {
   const [form, setForm] = useState<PromptFormState>(() => stateFromInitial(initialData))
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [feedback, setFeedback] = useState<{ kind: "success" | "error"; text: string } | null>(null)
@@ -86,7 +88,16 @@ export function PromptForm({ onSuccess, initialData }: PromptFormProps) {
     const payload = toNewRunFormData(form)
     setIsSubmitting(true)
     try {
-      const result = await submitSampleRunConfiguration(payload)
+      const hasSufficientData =
+        payload.prompt.trim().length > 0 &&
+        payload.email.trim().length > 0 &&
+        payload.model.trim().length > 0
+
+      const useSample = sampleMode || !hasSufficientData
+      const result = useSample
+        ? await submitSampleRunConfiguration(payload)
+        : await submitNewRun(payload)
+
       setFeedback({
         kind: "success",
         text:
@@ -105,6 +116,23 @@ export function PromptForm({ onSuccess, initialData }: PromptFormProps) {
         })
       }
     } catch (err) {
+      // If backend run fails in standard mode, gracefully degrade to sample mode.
+      if (!sampleMode) {
+        try {
+          const result = await submitSampleRunConfiguration(payload)
+          setFeedback({
+            kind: "success",
+            text:
+              result.message ??
+              `Backend run unavailable; submitted as sample. Run id: ${result.runId}.`,
+          })
+          await onSuccess?.(payload, result)
+          return
+        } catch {
+          // fall through to normal error handling below
+        }
+      }
+
       const text =
         err instanceof SubmitRunError
           ? err.message

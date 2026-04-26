@@ -122,6 +122,14 @@ export const MOCK_RUN_RESULT: RunResult = {
   baselineAccuracy: 0.72,
   downloadUrl: "https://storage.example.com/models/run-001/model.pt",
   emailSent: true,
+  baselineConfusionMatrix: [
+    [81, 16],
+    [19, 84],
+  ],
+  finetunedConfusionMatrix: [
+    [85, 12],
+    [8, 92],
+  ],
   confusionMatrix: [
     [85, 12],
     [8, 92],
