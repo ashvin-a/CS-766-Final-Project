@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 from torchvision import datasets, models, transforms
 from torch.utils.data import DataLoader
+from PIL import Image
 import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, classification_report
 import numpy as np
@@ -15,6 +16,25 @@ MODEL_PATH = os.path.join(TRAINER_DIR, "finetuned_model.pth")
 DATA_DIR = os.path.join(settings.DOWNLOAD_DIR, "test")
 
 
+def remove_corrupt_images(samples: list) -> list:
+    valid = []
+    for path, label in samples:
+        try:
+            with Image.open(path) as img:
+                img.load()
+            valid.append((path, label))
+        except Exception as e:
+            print(f"Removing corrupt image {path}: {e}")
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+    removed = len(samples) - len(valid)
+    if removed:
+        print(f"Removed {removed} corrupt image(s) from dataset.")
+    return valid
+
+
 def get_dataloader(data_dir: str, batch_size: int = 32):
     transform = transforms.Compose([
         transforms.Resize((224, 224)),
@@ -22,6 +42,8 @@ def get_dataloader(data_dir: str, batch_size: int = 32):
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
     ])
     dataset = datasets.ImageFolder(data_dir, transform=transform)
+    dataset.samples = remove_corrupt_images(dataset.samples)
+    dataset.targets = [label for _, label in dataset.samples]
     loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=4)
     return loader, dataset.classes
 

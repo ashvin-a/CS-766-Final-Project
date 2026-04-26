@@ -4,6 +4,7 @@ import torch.optim as optim
 from torchvision import datasets, models, transforms
 from torch.utils.data import DataLoader
 import os, PIL
+from PIL import Image
 from utils import Models
 from config import settings
 from utils.model_builder import ModelBuilder
@@ -19,6 +20,24 @@ class Trainer:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         # self.model_path = model_path or os.path.join(TRAINER_DIR, "resnet50-v2-7.onnx")
         self.train_dir = os.path.join(settings.DOWNLOAD_DIR, "train")
+
+    def remove_corrupt_images(self, samples: list) -> list:
+        valid = []
+        for path, label in samples:
+            try:
+                with Image.open(path) as img:
+                    img.load()
+                valid.append((path, label))
+            except Exception as e:
+                print(f"Removing corrupt image {path}: {e}")
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
+        removed = len(samples) - len(valid)
+        if removed:
+            print(f"Removed {removed} corrupt image(s) from dataset.")
+        return valid
 
     def get_data_loaders(self, required_class_names:list, batch_size=50):
         # Standard ResNet normalization values
@@ -51,6 +70,8 @@ class Trainer:
             for path, label in dataset.samples
             if label in old_indices
         ]
+
+        filtered_samples = self.remove_corrupt_images(filtered_samples)
 
         dataset.samples = filtered_samples
         dataset.targets = [label for _, label in filtered_samples]
@@ -89,29 +110,26 @@ class Trainer:
             running_loss = 0.0
             corrects = 0
             total = 0
-            try:
-                for inputs, labels in dataloader:
-                    inputs, labels = inputs.to(self.device), labels.to(self.device)
+            for inputs, labels in dataloader:
+                inputs, labels = inputs.to(self.device), labels.to(self.device)
 
-                    optimizer.zero_grad()
-                    outputs = model(inputs)
-                    loss = criterion(outputs, labels)
-                    _, preds = torch.max(outputs, 1)
-                    loss.backward()
-                    optimizer.step()
+                optimizer.zero_grad()
+                outputs = model(inputs)
+                loss = criterion(outputs, labels)
+                _, preds = torch.max(outputs, 1)
+                loss.backward()
+                optimizer.step()
 
-                    running_loss += loss.item() * inputs.size(0)
-                    corrects += torch.sum(preds == labels.data)
-                    total += inputs.size(0)
+                running_loss += loss.item() * inputs.size(0)
+                corrects += torch.sum(preds == labels.data)
+                total += inputs.size(0)
 
-                epoch_loss = running_loss / total
-                epoch_acc = corrects.double() / total
-                print(
-                    f"Epoch {epoch+1}/{epochs} | Loss: {epoch_loss:.4f} | Acc: {epoch_acc:.4f}"
-                )
-                max_accuracy = max(max_accuracy, epoch_acc)
-            except PIL.UnidentifiedImageError as e:
-                print(f"Skipping Epoch {epoch+1}/{epochs} because of corrupted image")
+            epoch_loss = running_loss / total
+            epoch_acc = corrects.double() / total
+            print(
+                f"Epoch {epoch+1}/{epochs} | Loss: {epoch_loss:.4f} | Acc: {epoch_acc:.4f}"
+            )
+            max_accuracy = max(max_accuracy, epoch_acc)
         torch.save({"architecture": model_architecture.value, "state_dict": model.state_dict()}, output_model_path)
         print(f"Model saved to {output_model_path}")
         return max_accuracy
