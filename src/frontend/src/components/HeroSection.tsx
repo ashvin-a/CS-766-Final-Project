@@ -1,14 +1,18 @@
 import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { HeroCanvas } from "./HeroCanvas"
-import { Play, FileCode } from "lucide-react"
+import { Play, FileCode, Eye } from "lucide-react"
 import { motion } from "framer-motion"
+import { useRunState } from "@/utils/useRunState"
 
 interface HeroSectionProps {
   onLoadExample?: () => void
 }
 
 export function HeroSection({ onLoadExample }: HeroSectionProps) {
+  const run = useRunState()
+  const isActive = run.isActive
+
   return (
     <section className="relative flex min-h-[420px] flex-col items-center justify-center overflow-hidden px-4 py-16">
       <HeroCanvas />
@@ -25,17 +29,38 @@ export function HeroSection({ onLoadExample }: HeroSectionProps) {
           Turn natural-language instructions into fine-tuned image classification models
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
-          <Button asChild size="lg" className="gap-2">
-            <Link to="/new-run">
-              <Play className="h-4 w-4" />
-              Start New Run
-            </Link>
-          </Button>
-          <Button variant="outline" size="lg" className="gap-2" onClick={onLoadExample}>
+          {isActive ? (
+            <Button asChild size="lg" className="gap-2" variant="secondary">
+              <Link to="/new-run">
+                <Eye className="h-4 w-4" />
+                View active run
+              </Link>
+            </Button>
+          ) : (
+            <Button asChild size="lg" className="gap-2">
+              <Link to="/new-run">
+                <Play className="h-4 w-4" />
+                Start New Run
+              </Link>
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="lg"
+            className="gap-2"
+            onClick={onLoadExample}
+            disabled={isActive}
+            title={isActive ? "A run is currently in progress" : undefined}
+          >
             <FileCode className="h-4 w-4" />
             Load Example
           </Button>
         </div>
+        {isActive && (
+          <p className="mt-4 text-xs text-muted-foreground">
+            A run is currently in progress — new runs are paused until it finishes.
+          </p>
+        )}
       </motion.div>
     </section>
   )

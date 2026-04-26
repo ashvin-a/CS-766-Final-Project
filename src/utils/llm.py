@@ -25,7 +25,12 @@ class CustomLLM:
             ],
         }
 
-        response = requests.post(self.endpoint, headers=headers, json=payload)
+        # Some local environments set HTTPS proxy vars that block API traffic.
+        # Use a session with trust_env disabled so direct Groq calls still work.
+        session = requests.Session()
+        session.trust_env = False
+        response = session.post(self.endpoint, headers=headers, json=payload, timeout=60)
+        response.raise_for_status()
 
         output = dict(response.json()).get("choices")[0].get("message").get("content")
 

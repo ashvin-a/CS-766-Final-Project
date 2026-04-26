@@ -13,7 +13,13 @@ import {
 import { Slider } from "@/components/ui/slider"
 import { ModelSelector } from "./ModelSelector"
 import type { NewRunFormData, PromptFormState, VisionModel } from "@/types"
-import { submitNewRun, submitSampleRunConfiguration, SubmitRunError } from "@/utils/api"
+import {
+  submitNewRun,
+  submitSampleRunConfiguration,
+  SubmitRunError,
+  type SubmitRunResult,
+} from "@/utils/api"
+import { useRunState } from "@/utils/useRunState"
 import { Loader2 } from "lucide-react"
 
 const PROMPT_PLACEHOLDERS = [
@@ -45,7 +51,12 @@ function stateFromInitial(initial?: Partial<NewRunFormData>): PromptFormState {
     prompt: initial?.prompt ?? "",
     email: initial?.email ?? "",
     model: (initial?.model ?? "efficientnet_b0") as VisionModel,
-    dataSources: initial?.dataSources ?? { ...defaultDataSources },
+    dataSources: {
+      ...defaultDataSources,
+      ...initial?.dataSources,
+      // Web scraping is always enabled for backend compatibility.
+      webScraping: true,
+    },
     advanced: initial?.advanced ? { ...defaultAdvanced, ...initial.advanced } : { ...defaultAdvanced },
   }
 }
@@ -55,26 +66,50 @@ function toNewRunFormData(f: PromptFormState): NewRunFormData {
     prompt: f.prompt,
     email: f.email,
     model: f.model,
-    dataSources: f.dataSources,
+    dataSources: {
+      ...f.dataSources,
+      // Enforce backend-required default.
+      webScraping: true,
+    },
     advanced: f.advanced,
   }
 }
 
 interface PromptFormProps {
+  /** Called immediately when submit starts (before backend response). */
+  onStart?: (
+    data: NewRunFormData,
+    result: { runId: string; message?: string; sampleMode: boolean }
+  ) => void | Promise<void>
   /** Called after a submit API succeeds. */
   onSuccess?: (
     data: NewRunFormData,
-    result: { runId: string; message?: string }
+    result: SubmitRunResult & { sampleMode: boolean }
   ) => void | Promise<void>
+  /** Called when the backend returned an error or was unreachable. */
+  onError?: (error: Error, data: NewRunFormData) => void | Promise<void>
   initialData?: Partial<NewRunFormData>
   /** Force sample endpoint usage (for example/demo presets). */
   sampleMode?: boolean
 }
 
-export function PromptForm({ onSuccess, initialData, sampleMode = false }: PromptFormProps) {
+export function PromptForm({
+  onStart,
+  onSuccess,
+  onError,
+  initialData,
+  sampleMode = false,
+}: PromptFormProps) {
   const [form, setForm] = useState<PromptFormState>(() => stateFromInitial(initialData))
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [feedback, setFeedback] = useState<{ kind: "success" | "error"; text: string } | null>(null)
+  const run = useRunState()
+
+  // Freeze new real runs while a run is already in flight globally. We
+  // still allow sample runs (they don't talk to the live backend) and we
+  // don't lock ourselves out while we're actively submitting (in that
+  // case `isSubmitting` is the canonical state).
+  const isAnotherRunInFlight = !sampleMode && run.isActive && !isSubmitting
 
   useEffect(() => {
     if (initialData) {
@@ -84,17 +119,25 @@ export function PromptForm({ onSuccess, initialData, sampleMode = false }: Promp
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (isAnotherRunInFlight) {
+      setFeedback({
+        kind: "error",
+        text:
+          "A run is already in progress. Wait for it to finish (or fail) before starting a new one.",
+      })
+      return
+    }
     setFeedback(null)
     const payload = toNewRunFormData(form)
+    const provisionalRun = {
+      runId: `${sampleMode ? "sample" : "run"}-${Date.now()}`,
+      message: sampleMode ? "Sample run started." : "Run started.",
+      sampleMode,
+    }
     setIsSubmitting(true)
+    await onStart?.(payload, provisionalRun)
     try {
-      const hasSufficientData =
-        payload.prompt.trim().length > 0 &&
-        payload.email.trim().length > 0 &&
-        payload.model.trim().length > 0
-
-      const useSample = sampleMode || !hasSufficientData
-      const result = useSample
+      const result = sampleMode
         ? await submitSampleRunConfiguration(payload)
         : await submitNewRun(payload)
 
@@ -102,47 +145,33 @@ export function PromptForm({ onSuccess, initialData, sampleMode = false }: Promp
         kind: "success",
         text:
           result.message ??
-          `Submitted successfully. Run id: ${result.runId}. You can continue with pipeline steps below.`,
+          (sampleMode
+            ? `Sample submitted. Run id: ${result.runId}.`
+            : `Backend pipeline finished. Run id: ${result.runId}.`),
       })
       try {
-        await onSuccess?.(payload, result)
+        await onSuccess?.(payload, { ...result, sampleMode })
       } catch (hookErr) {
-        setFeedback({
-          kind: "error",
-          text:
-            hookErr instanceof Error
-              ? `Saved to server, but a follow-up step failed: ${hookErr.message}`
-              : "Saved to server, but a follow-up step failed.",
-        })
+        const text =
+          hookErr instanceof Error
+            ? `Saved to server, but a follow-up step failed: ${hookErr.message}`
+            : "Saved to server, but a follow-up step failed."
+        setFeedback({ kind: "error", text })
       }
     } catch (err) {
-      // If backend run fails in standard mode, gracefully degrade to sample mode.
-      if (!sampleMode) {
-        try {
-          const result = await submitSampleRunConfiguration(payload)
-          setFeedback({
-            kind: "success",
-            text:
-              result.message ??
-              `Backend run unavailable; submitted as sample. Run id: ${result.runId}.`,
-          })
-          await onSuccess?.(payload, result)
-          return
-        } catch {
-          // fall through to normal error handling below
-        }
-      }
-
       const text =
         err instanceof SubmitRunError
-          ? err.message
+          ? err.status
+            ? `Backend error (${err.status}): ${err.message}`
+            : err.message
           : err instanceof Error
             ? err.message
             : "Something went wrong. Check that the API is running (e.g. FastAPI on port 8000) and try again."
-      setFeedback({
-        kind: "error",
-        text,
-      })
+      setFeedback({ kind: "error", text })
+      await onError?.(
+        err instanceof Error ? err : new Error("Run submission failed"),
+        payload
+      )
     } finally {
       setIsSubmitting(false)
     }
@@ -198,12 +227,11 @@ export function PromptForm({ onSuccess, initialData, sampleMode = false }: Promp
         <div className="flex flex-wrap gap-6">
           <label className="flex items-center gap-2">
             <Switch
-              checked={form.dataSources.webScraping}
-              onCheckedChange={(c) =>
-                setForm((f) => ({ ...f, dataSources: { ...f.dataSources, webScraping: c } }))
-              }
+              checked
+              disabled
+              aria-disabled
             />
-            <span className="text-sm">Web Scraping</span>
+            <span className="text-sm">Web Scraping (always enabled)</span>
           </label>
           <label className="flex items-center gap-2">
             <Switch
@@ -357,16 +385,41 @@ export function PromptForm({ onSuccess, initialData, sampleMode = false }: Promp
         </AccordionItem>
       </Accordion>
 
-      <Button type="submit" size="lg" className="w-full" disabled={isSubmitting}>
+      <Button
+        type="submit"
+        size="lg"
+        className="w-full"
+        disabled={isSubmitting || isAnotherRunInFlight}
+      >
         {isSubmitting ? (
           <>
             <Loader2 className="h-4 w-4 animate-spin" />
-            Submitting...
+            {sampleMode ? "Submitting sample..." : "Pipeline running on backend..."}
           </>
+        ) : isAnotherRunInFlight ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Run already in progress
+          </>
+        ) : sampleMode ? (
+          "Run Sample"
         ) : (
           "Start Run"
         )}
       </Button>
+      {isAnotherRunInFlight && (
+        <p className="text-xs text-muted-foreground">
+          A run is currently in flight ({run.phase === "success" ? "evaluating" : "training"}).
+          The Start Run button will re-enable automatically when it finishes or fails.
+        </p>
+      )}
+      {!sampleMode && isSubmitting && (
+        <p className="text-xs text-muted-foreground">
+          Real runs do scraping, augmentation, CLIP filtering and fine-tuning, which can take
+          several minutes. Pipeline progress is shown below; results appear automatically when
+          training finishes.
+        </p>
+      )}
     </form>
   )
 }
