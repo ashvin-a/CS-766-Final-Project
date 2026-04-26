@@ -39,7 +39,7 @@ def run(req: RunRequest):
                 if response.get("code") == 400:
                     return {"success": False, "code": 400}
         if req.dataSources.syntheticGeneration:
-            generate_diffusion_dataset(class_name=class_name, image_count=req.advanced.augmentatedImageCount,
+            generate_diffusion_dataset(class_name=class_name, image_count=req.advanced.augmentationStrength,
                                        is_web_scraping_enabled=req.dataSources.webScraping)
     # Split scraped images into train / test, then augment training set only
     data_gen = DataGenerator(source_dir=settings.DOWNLOAD_DIR)

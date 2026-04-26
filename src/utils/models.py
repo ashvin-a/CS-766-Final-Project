@@ -18,7 +18,7 @@ class DataSources(BaseModel):
 
 class AdvancedSettings(BaseModel):
     datasetSizeTarget: int = 1000
-    augmentatedImageCount: int = 40
+    augmentationStrength: int = 40
     clipThreshold: float = 0.7
     freezeBackbone: bool = False
     epochs: int = 12
