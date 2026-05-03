@@ -155,7 +155,7 @@ venv.bak/
 .ropeproject
 
 # mkdocs documentation
-/site
+# /site  — commented out; this project uses /site/ for the product website, not mkdocs
 
 # mypy
 .mypy_cache/

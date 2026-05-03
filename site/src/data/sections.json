@@ -1,0 +1,45 @@
+{
+  "tagline": "Prompt → Vision",
+  "subtitle": "Language-guided perception for your pipeline.",
+  "githubUrl": "https://github.com/suramypidara/CS-766-Final-Project",
+  "templateRepoUrl": "https://github.com/suramypidara/prompt-to-vision-site",
+  "sections": [
+    {
+      "id": "overview",
+      "title": "Project overview",
+      "body": "Placeholder copy — describe how natural-language prompts steer scraping, diffusion, filtering, and fine-tuning in one cohesive loop.",
+      "code": "// POST /run/\n{\n  \"prompt\": \"Classify mystery vs sci-fi book covers\",\n  \"model\": \"efficientnet_b0\",\n  \"dataSources\": { \"webScraping\": true }\n}",
+      "imageCaption": "Architecture sketch (placeholder)",
+      "imageAlt": "Diagram placeholder"
+    },
+    {
+      "id": "data",
+      "title": "Data & augmentation",
+      "body": "Placeholder — outline scraping policies, synthetic generation, and augmentation strength controls exposed to operators.",
+      "code": "advanced: {\n  datasetSizeTarget: 1000,\n  augmentationStrength: 0.5,\n  clipThreshold: 0.7\n}",
+      "imageCaption": "Dataset collage (placeholder)",
+      "imageAlt": "Sample grid placeholder"
+    },
+    {
+      "id": "training",
+      "title": "Training & evaluation",
+      "body": "Placeholder — summarize epochs, backbone choices, and how baseline vs finetuned metrics surface to reviewers.",
+      "code": "// Evaluation snippet\nbaseline_accuracy = evaluate(model_head_random)\nfinetuned_accuracy = evaluate(checkpoint)",
+      "imageCaption": "Metrics snapshot (placeholder)",
+      "imageAlt": "Charts placeholder"
+    },
+    {
+      "id": "product",
+      "title": "Operator experience",
+      "body": "Placeholder — explain dashboards, run lifecycle, and transparency around backend status vs timed UX previews.",
+      "code": "<PipelineStepper stages={pipelineStages} />\n<MetricsPanel result={runResult} />",
+      "imageCaption": "UI mock (placeholder)",
+      "imageAlt": "Interface placeholder"
+    }
+  ],
+  "thankYou": {
+    "title": "Thank you",
+    "body": "Thanks for touring Prompt → Vision — placeholders above swap cleanly via sections.json.",
+    "signature": "— The team"
+  }
+}
