@@ -1,10 +1,11 @@
 export interface SectionEntry {
   id: string
   title: string
+  /** Markdown-formatted body text */
   body: string
-  code: string
-  imageCaption: string
-  imageAlt: string
+  code?: string
+  imageCaption?: string
+  imageAlt?: string
 }
 
 export interface SiteContent {

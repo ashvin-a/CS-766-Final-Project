@@ -1,12 +1,16 @@
 import type { SiteContent } from "../types/content"
+import { MarkdownBody } from "./MarkdownBody"
 
-// Gradient per-section for the thumb area
+// Per-section gradient palettes — one per section, cycles if more are added
 const THUMB_GRADIENTS = [
-  "linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%)",
-  "linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)",
-  "linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)",
-  "linear-gradient(135deg, #fdf4ff 0%, #fae8ff 100%)",
-  "linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)",
+  "linear-gradient(135deg, #dbeafe 0%, #ede9fe 100%)",   // 0 intro — blue→violet
+  "linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)",   // 1 data-sourcing — green
+  "linear-gradient(135deg, #fae8ff 0%, #f0abfc 100%)",   // 2 synthetic — purple/pink
+  "linear-gradient(135deg, #ccfbf1 0%, #99f6e4 100%)",   // 3 filtering — teal
+  "linear-gradient(135deg, #fef9c3 0%, #fde68a 100%)",   // 4 models — amber
+  "linear-gradient(135deg, #ede9fe 0%, #c4b5fd 100%)",   // 5 training — violet
+  "linear-gradient(135deg, #d1fae5 0%, #a5f3fc 100%)",   // 6 results — green→cyan
+  "linear-gradient(135deg, #f0f9ff 0%, #bae6fd 100%)",   // 7 analysis — sky blue
 ]
 
 interface Props {
@@ -40,7 +44,6 @@ export function SectionDeck({ content, activeIdx }: Props) {
           body={sectionEntry.body}
           code={sectionEntry.code}
           imageCaption={sectionEntry.imageCaption}
-          imageAlt={sectionEntry.imageAlt}
           index={activeIdx + 1}
           gradient={gradient}
         />
@@ -52,9 +55,8 @@ export function SectionDeck({ content, activeIdx }: Props) {
 interface SectionPanelProps {
   title: string
   body: string
-  code: string
-  imageCaption: string
-  imageAlt: string
+  code?: string
+  imageCaption?: string
   index: number
   gradient: string
 }
@@ -64,38 +66,62 @@ function SectionPanel({
   body,
   code,
   imageCaption,
-  imageAlt,
   index,
   gradient,
 }: SectionPanelProps) {
   return (
     <>
+      {/* Coloured header strip */}
       <div
         className="panel-thumb"
-        role="img"
-        aria-label={imageAlt}
+        role="presentation"
         style={{ background: gradient }}
       >
-        <span>{imageCaption}</span>
+        {imageCaption && <span>{imageCaption}</span>}
       </div>
+
       <div className="panel-index">Stop {index}</div>
       <h2 className="panel-title">{title}</h2>
-      <p className="panel-body">{body}</p>
-      <pre className="panel-code mono">{code}</pre>
+
+      {/* Markdown-rendered body */}
+      <div className="panel-body">
+        <MarkdownBody src={body} />
+      </div>
+
+      {/* Optional code block */}
+      {code && <pre className="panel-code mono">{code}</pre>}
     </>
   )
 }
 
-function ThankYouPanel({ content, gradient }: { content: SiteContent; gradient: string }) {
+function ThankYouPanel({
+  content,
+  gradient,
+}: {
+  content: SiteContent
+  gradient: string
+}) {
   return (
     <>
-      <div className="panel-thumb" style={{ background: gradient, fontSize: "2rem" }}>
+      <div
+        className="panel-thumb"
+        style={{ background: gradient, fontSize: "2rem" }}
+        role="presentation"
+      >
         ✦
       </div>
       <div className="panel-index">Finale</div>
       <h2 className="panel-title">{content.thankYou.title}</h2>
-      <p className="panel-body">{content.thankYou.body}</p>
-      <p className="panel-body mono" style={{ opacity: 0.55, paddingTop: 0 }}>
+
+      {/* Thank you body also supports markdown */}
+      <div className="panel-body">
+        <MarkdownBody src={content.thankYou.body} />
+      </div>
+
+      <p
+        className="panel-body mono"
+        style={{ opacity: 0.55, paddingTop: 0, fontSize: "0.82rem" }}
+      >
         {content.thankYou.signature}
       </p>
     </>

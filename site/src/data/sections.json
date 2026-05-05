@@ -1,45 +1,67 @@
 {
   "tagline": "Prompt → Vision",
-  "subtitle": "Language-guided perception for your pipeline.",
+  "subtitle": "Language-guided perception pipeline.",
   "githubUrl": "https://github.com/suramypidara/CS-766-Final-Project",
   "templateRepoUrl": "https://github.com/suramypidara/prompt-to-vision-site",
   "sections": [
     {
-      "id": "overview",
-      "title": "Project overview",
-      "body": "Placeholder copy — describe how natural-language prompts steer scraping, diffusion, filtering, and fine-tuning in one cohesive loop.",
-      "code": "// POST /run/\n{\n  \"prompt\": \"Classify mystery vs sci-fi book covers\",\n  \"model\": \"efficientnet_b0\",\n  \"dataSources\": { \"webScraping\": true }\n}",
-      "imageCaption": "Architecture sketch (placeholder)",
-      "imageAlt": "Diagram placeholder"
+      "id": "intro",
+      "title": "The challenge",
+      "body": "**Prompt → Vision** automates the full path from a natural-language description to a deployable image classifier — no manual data collection, no labeling, no custom training scripts required.\n\n## The pipeline\nA single `POST /run/` request triggers 8 sequential stages automatically:\n\n- Prompt parsing → class labels + Bing search queries via LLM\n- Web scraping → headless Chromium, Bing Images\n- Synthetic generation → FLUX.1-schnell diffusion (optional)\n- Dataset assembly → 80/20 train/test split\n- CLIP filtering → cosine similarity threshold (optional)\n- Augmentation → flip, rotate, crop, color jitter (optional)\n- Fine-tuning → frozen backbone + new classification head\n- Evaluation → baseline vs. fine-tuned confusion matrices\n\n## Architecture\nThree-tier stack: **React SPA** (frontend) + **FastAPI** (backend orchestrator) + **Groq LLM** + **Hugging Face Inference API** (external inference). Run state persists via `localStorage` and a custom `runstatechange` DOM event.",
+      "code": "// POST /run/ — single call triggers the full pipeline\n{\n  \"prompt\": \"Classify sad, angry, happy human faces\",\n  \"model\": \"mobilenet_v3\",\n  \"dataSources\": {\n    \"webScraping\": true,\n    \"syntheticGeneration\": false,\n    \"augmentation\": true,\n    \"clipFiltering\": true\n  },\n  \"advanced\": {\n    \"epochs\": 12,\n    \"learningRate\": 0.003,\n    \"batchSize\": 50\n  }\n}",
+      "imageCaption": "End-to-end: natural language → labeled dataset → fine-tuned classifier"
     },
     {
-      "id": "data",
-      "title": "Data & augmentation",
-      "body": "Placeholder — outline scraping policies, synthetic generation, and augmentation strength controls exposed to operators.",
-      "code": "advanced: {\n  datasetSizeTarget: 1000,\n  augmentationStrength: 0.5,\n  clipThreshold: 0.7\n}",
-      "imageCaption": "Dataset collage (placeholder)",
-      "imageAlt": "Sample grid placeholder"
+      "id": "data-sourcing",
+      "title": "Data sourcing",
+      "body": "## LLM Prompt Parsing\nRaw user input is routed to **openai/gpt-oss-120b** (120B-parameter model) via the Groq inference API. The LLM is instructed via a structured system prompt to return JSON containing (a) extracted class labels (singularized) and (b) 3 highly specific Bing Image search queries per class. The `json_repair` library provides resilience against malformed LLM output — a common failure mode with instruction-following models.\n\n## Web Scraping (Bing Images)\nA **Playwright headless Chromium** browser navigates to Bing Image Search, waits for JavaScript-rendered tile anchors (`a.iusc`), performs 3 scroll iterations to trigger lazy-loading, and extracts full-resolution image URLs from the `murl` field in each tile's JSON `m` attribute. BeautifulSoup handles HTML parsing. A fallback path extracts thumbnail `src` from `img.mimg` elements when the primary selector fails.\n\n> Playwright was chosen over static HTTP scraping because Bing renders results via JavaScript — making server-side HTML alone insufficient.\n\n**Configurable:** `MAX_IMAGES` (default 20/query) · `REQUEST_TIMEOUT` (30 s) · custom `USER_AGENT`\n\n## Storage\nImages land in `downloads/<class_name>/` with zero-padded index + 8-char MD5 hash of the source URL for deduplication. An optional SQLite store (`image_scraper.db`) persists lightweight metadata with `UNIQUE(keyword, image_url)` semantics.",
+      "code": "# src/orchestrator/orchestrator.py — LLM system prompt\nsystem_prompt = \"\"\"\nYou are an AI assistant helping to build computer vision datasets.\nReturn ONLY valid JSON in this exact format:\n{\n  \"classes\": [\"class1\", \"class2\"],\n  \"search_queries\": {\n    \"class1\": [\"query 1\", \"query 2\", \"query 3\"],\n    \"class2\": [\"query 1\", \"query 2\", \"query 3\"]\n  }\n}\nMake classes singular. Queries must be highly specific.\n\"\"\"",
+      "imageCaption": "LLM → structured JSON → Playwright scraper → local disk"
+    },
+    {
+      "id": "synthetic",
+      "title": "Synthetic generation",
+      "body": "## FLUX.1-schnell via Hugging Face\nWhen the user enables synthetic generation, `generate_diffusion_dataset()` in `src/diffusion/flux_api_hf.py` is invoked. The pipeline:\n\n1. Calls the LLM (`openai/gpt-oss-120b` via Groq) to produce an optimized base diffusion prompt for the given class\n2. Requests up to **100 prompt variations** through a second LLM call (`prompt_variations()`)\n3. Sends each variation to **FLUX.1-schnell** via `InferenceClient.text_to_image()`\n4. Saves output images as PNG with a SHA-256-derived run hash in the filename for deduplication\n\n## Explored Alternatives\n- `stable-diffusion-v1-5` — local FP16 via diffusers `AutoPipelineForText2Image` + `torch.compile(mode=\"reduce-overhead\")`\n- `stable-diffusion-xl-base-1.0` — REST endpoint (512×512, cfg 7.5, 30 steps, negative prompt for artifacts)\n- `FLUX.1-dev` — Gradio client\n\n> Diffusion-augmented runs outperformed plain ResNet-50 (65.31% vs 62.86%) but fell short of standard augmentation (67.35%) — synthetic images add useful diversity but may introduce distributional noise.",
+      "code": "# src/diffusion/flux_api_hf.py\ndef generate_diffusion_dataset(\n    class_name: str,\n    user_prompt: str,\n    output_path: Path,\n    n_images: int = 20,\n) -> list[Path]:\n    # 1. LLM generates optimized base prompt\n    base_prompt = llm_base_prompt(class_name, user_prompt)\n    # 2. LLM generates up to 100 prompt variations\n    variations = prompt_variations(base_prompt, n=min(n_images, 100))\n    # 3. HF Inference API generates each image\n    run_hash = hashlib.sha256(base_prompt.encode()).hexdigest()[:12]\n    saved = []\n    for i, var in enumerate(variations[:n_images]):\n        img = client.text_to_image(var, model=FLUX_MODEL)\n        out = output_path / f\"diffusion_{run_hash}_{i:04d}.png\"\n        img.save(out)\n        saved.append(out)\n    return saved",
+      "imageCaption": "FLUX.1-schnell via HF Inference API — 100 LLM-varied prompts per class"
+    },
+    {
+      "id": "filtering",
+      "title": "CLIP filtering",
+      "body": "## CLIP Relevance Filtering\n**openai/clip-vit-base-patch32** (ViT-B/32) computes cosine similarity between each image embedding and a text probe built from the class label and the user's task description. Images scoring below **0.22** are deleted from disk before training.\n\nA minimum post-filter count of **3 images per class** is enforced — if any class falls below this threshold, the pipeline returns an error rather than training on an insufficient dataset.\n\nThe CLIP model is loaded locally from Hugging Face Hub on first use (lazy initialization), cached in memory for subsequent calls, and runs in `torch.no_grad()` with explicit L2-normalization before dot-product similarity.\n\n## Data Augmentation\nApplied **exclusively to the training split** — 5 augmented copies per original image using `torchvision.transforms.Compose`:\n\n- `RandomHorizontalFlip` (p = 0.5)\n- `RandomRotation` (±20°)\n- `RandomResizedCrop` (224 × 224, scale 70–100%)\n- `ColorJitter` (brightness, contrast, saturation ±0.3; hue ±0.1)\n\nFiles prefixed `aug_` are skipped on subsequent runs — the pipeline is idempotent.\n\n## Train/Test Splitting\nThe `DataGenerator` class reorganizes `downloads/<class>/` into `downloads/train/<class>/` and `downloads/test/<class>/` using a seeded (`seed=42`) 80/20 random split. At least one test image is guaranteed per class.",
+      "code": "# src/filters/clip_relevance.py\ndef make_text_probe(class_name, user_prompt=None):\n    if user_prompt:\n        return f'{user_prompt}. A clear photo showing: {class_name}.'\n    return f'a photo of {class_name}'\n\n# src/data_generator/main.py\nAUGMENTATION_PIPELINE = transforms.Compose([\n    transforms.RandomHorizontalFlip(p=0.5),\n    transforms.RandomRotation(degrees=20),\n    transforms.RandomResizedCrop(224, scale=(0.7, 1.0)),\n    transforms.ColorJitter(\n        brightness=0.3, contrast=0.3,\n        saturation=0.3, hue=0.1\n    ),\n])",
+      "imageCaption": "CLIP cosine similarity gate (threshold 0.22) + 5× augmentation on train split"
+    },
+    {
+      "id": "models",
+      "title": "Model architectures",
+      "body": "## Vision Backbones — all frozen, only the head is trained\n\n| Architecture | Pretrained weights | Head input dim |\n|---|---|---|\n| ResNet-50 | ImageNet-1K V1 | 2,048 |\n| MobileNet-V3 Large | ImageNet-1K V1 | 960 |\n| EfficientNet-B0 | ImageNet-1K V1 | 1,280 |\n| ConvNeXt-Tiny | ImageNet-1K V1 | 768 |\n\nAll backbone parameters are frozen (`param.requires_grad = False`). The `ModelBuilder` class locates the terminal `nn.Linear` (`.fc` for ResNet, last linear found via `named_modules()` for others) and replaces it with `nn.Linear(in_features, N_classes)`. The checkpoint saves both `state_dict` and the architecture identifier string for reproducible evaluation.\n\n## Supporting Models\n**LLM:** `openai/gpt-oss-120b` via Groq — class extraction + search query generation + diffusion prompt engineering\n\n**CLIP:** `openai/clip-vit-base-patch32` — image relevance filtering (lazy-loaded locally, L2-normalized embeddings)\n\n**Diffusion:** `black-forest-labs/FLUX.1-schnell` — synthetic training image generation via HF serverless Inference API",
+      "code": "# src/utils/model_builder.py — head replacement\nfor param in model.parameters():\n    param.requires_grad = False\n\n# ResNet family:\nin_features = model.fc.in_features\nmodel.fc = nn.Linear(in_features, num_classes)\n\n# Other architectures (MobileNet, EfficientNet, ConvNeXt):\nfor name, module in reversed(list(model.named_modules())):\n    if isinstance(module, nn.Linear):\n        parent = model\n        for part in name.split('.')[:-1]:\n            parent = getattr(parent, part)\n        setattr(parent, name.split('.')[-1],\n                nn.Linear(module.in_features, num_classes))\n        break",
+      "imageCaption": "4 ImageNet-pretrained backbones — frozen feature extractor + trainable head"
     },
     {
       "id": "training",
-      "title": "Training & evaluation",
-      "body": "Placeholder — summarize epochs, backbone choices, and how baseline vs finetuned metrics surface to reviewers.",
-      "code": "// Evaluation snippet\nbaseline_accuracy = evaluate(model_head_random)\nfinetuned_accuracy = evaluate(checkpoint)",
-      "imageCaption": "Metrics snapshot (placeholder)",
-      "imageAlt": "Charts placeholder"
+      "title": "Training setup",
+      "body": "## Hyperparameters\n\n| Parameter | Default | Source |\n|---|---|---|\n| Optimizer | Adam | `src/trainer/train.py` |\n| Learning rate | 0.003 | `src/trainer/train.py` |\n| Loss function | CrossEntropyLoss | `src/trainer/train.py` |\n| Batch size (train) | 50 | `src/trainer/train.py` |\n| Batch size (eval) | 32 | `src/trainer/test.py` |\n| Epochs | 12 (user-configurable) | `src/utils/models.py` |\n| Input resolution | 224 × 224 | `src/trainer/train.py` |\n| Train/test split | 80 / 20 | `src/data_generator/main.py` |\n| Aug. copies per image | 5 | `src/data_generator/main.py` |\n| Random seed | 42 | `src/data_generator/main.py` |\n\n## Transfer Learning Strategy\nAll backbone parameters are **frozen**. Only the newly initialized classification head is trained. This design choice is motivated by the small, noisy datasets typical of automated scraping — freezing the backbone prevents catastrophic forgetting and reduces training time to **minutes rather than hours**.\n\n## Preprocessing\nAll images are resized to 224 × 224 and normalized to ImageNet channel statistics: `mean=[0.485, 0.456, 0.406]`, `std=[0.229, 0.224, 0.225]`. Corrupt images are purged before the dataset is loaded via `Trainer.remove_corrupt_images()` using Pillow's full-load check.",
+      "code": "# src/trainer/train.py — preprocessing\ndata_transforms = transforms.Compose([\n    transforms.Resize((224, 224)),\n    transforms.ToTensor(),\n    transforms.Normalize(\n        mean=[0.485, 0.456, 0.406],\n        std=[0.229, 0.224, 0.225]\n    ),\n])\n\n# torchvision.datasets.ImageFolder infers class labels\n# from the directory hierarchy under downloads/train/\ndataset = ImageFolder(train_dir, transform=data_transforms)",
+      "imageCaption": "Frozen ImageNet backbone + trainable head — minutes to convergence"
     },
     {
-      "id": "product",
-      "title": "Operator experience",
-      "body": "Placeholder — explain dashboards, run lifecycle, and transparency around backend status vs timed UX previews.",
-      "code": "<PipelineStepper stages={pipelineStages} />\n<MetricsPanel result={runResult} />",
-      "imageCaption": "UI mock (placeholder)",
-      "imageAlt": "Interface placeholder"
+      "id": "results",
+      "title": "Experimental results",
+      "body": "## 8-Run Experiment — Sad / Angry / Happy Face Classification\n3 epochs · lr 0.0001 · test images from automated Bing scrape\n\n| Run | Configuration | Baseline | Fine-tuned | Gain |\n|---|---|---|---|---|\n| 1 | ResNet-50 | 30.29% | 62.86% | +32.6 pp |\n| 2 | MobileNet-V3 | 29.14% | **71.43%** | **+42.3 pp** |\n| 3 | EfficientNet-B0 | 30.86% | 68.00% | +37.1 pp |\n| 4 | ConvNeXt-Tiny | **38.29%** | 68.57% | +30.3 pp |\n| 5 | ResNet-50 + Augmentation | 35.37% | 67.35% | +32.0 pp |\n| 6 | ResNet-50 + Diffusion | 29.93% | 65.31% | +35.4 pp |\n| 7 | ResNet-50 + CLIP Filter | 37.29% | 62.86% | +25.6 pp |\n| 8 | ResNet-50 + All Features | 26.40% | 60.43% | +34.0 pp |\n\n> Fine-tuning improved accuracy by **+25 to +42 percentage points** in every single run.\n\n## Per-Class Notes (Run 1 — ResNet-50)\n- *sad*: completely failed before fine-tuning (0.0%) → recovered to 42.2%\n- *angry*: 65.4% baseline → 63.5% (slight regression)\n- *happy*: 32.2% baseline → 84.7% (largest individual gain)\n\nThe **3D bar chart** floating in the scene above shows all 8 runs — blue bars = baseline accuracy, purple bars = fine-tuned accuracy.",
+      "imageCaption": "3D bars in scene: blue = baseline, purple gradient = fine-tuned accuracy"
+    },
+    {
+      "id": "analysis",
+      "title": "Analysis",
+      "body": "## Architecture Comparison (Runs 1–4)\n**MobileNet-V3** achieved the highest fine-tuned accuracy at **71.43%**, outperforming ResNet-50, EfficientNet-B0, and ConvNeXt-Tiny. Lighter depthwise-separable architectures appear to generalize better to the local texture features relevant to emotion recognition.\n\n**ConvNeXt-Tiny** had the strongest baseline (38.29%) — best ImageNet priors — yet did not lead after fine-tuning. *Baseline feature quality and fine-tuning performance are not perfectly correlated for this task.*\n\n## Augmentation Strategies on ResNet-50\n\n| Strategy | Fine-tuned | vs. None |\n|---|---|---|\n| None (Run 1) | 62.86% | — |\n| + Standard Augmentation | 67.35% | +4.5 pp |\n| + Diffusion Augmentation | 65.31% | +2.5 pp |\n| + CLIP Filtering | 62.86% | +0.0 pp |\n| + All Combined (Run 8) | 60.43% | −2.4 pp |\n\n> Combining all strategies simultaneously produced the **worst** ResNet-50 result — stacking augmentation pipelines without principled selection can introduce conflicting noise signals.\n\n## Key Takeaways\n- **Fine-tuning is highly effective** — 22–42 pp gains across all architectures and strategies\n- **Lighter can outperform heavier** — MobileNet-V3 beat ConvNeXt-Tiny after fine-tuning\n- **Strong baselines do not guarantee fine-tuning gains** — top baseline ≠ top fine-tuned\n- **Augmentation stacking requires care** — more is not always better",
+      "imageCaption": "MobileNet-V3 best (71.43%); combining all features hurt performance (Run 8)"
     }
   ],
   "thankYou": {
     "title": "Thank you",
-    "body": "Thanks for touring Prompt → Vision — placeholders above swap cleanly via sections.json.",
-    "signature": "— The team"
+    "body": "Prompt → Vision was built as a CS 766 Computer Vision final project — a fully automated pipeline from natural-language description to fine-tuned vision classifier. Fine-tuning consistently delivered +25 to +42 percentage-point accuracy gains across all 8 experimental runs and 4 model architectures.\n\nThe complete codebase, backend API, React frontend, and this product site are all open source.",
+    "signature": "— CS 766 Final Project Team"
   }
 }
