@@ -17,7 +17,7 @@ const MEMBERS = [
     bg:       "rgba(109,40,217,0.88)",
   },
   {
-    name: "Ashish Das",
+    name: "Asish Das",
     color:    new THREE.Color(0.08, 0.72, 0.66),
     emissive: new THREE.Color(0.04, 0.42, 0.38),
     bg:       "rgba(13,148,136,0.88)",

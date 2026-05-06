@@ -63,6 +63,6 @@
     "title": "Thank you",
     "body": "Prompt → Vision was built as a CS 766 Computer Vision final project — a fully automated pipeline from natural-language description to fine-tuned vision classifier. Fine-tuning consistently delivered +25 to +42 percentage-point accuracy gains across all 8 experimental runs and 4 model architectures.\n\nThe complete codebase, backend API, React frontend, and this product site are all open source.",
     "signature": "— CS 766 Final Project Team",
-    "team": ["Ashvin Anilkumar", "Suramy Pidara", "Ashish Das"]
+    "team": ["Ashvin Anilkumar", "Suramy Pidara", "Asish Das"]
   }
 }
