@@ -18,5 +18,6 @@ export interface SiteContent {
     title: string
     body: string
     signature: string
+    team?: string[]
   }
 }

@@ -94,6 +94,13 @@ function SectionPanel({
   )
 }
 
+// Per-member accent colors — blue, purple, teal
+const CREDIT_COLORS = [
+  { bg: "rgba(37,99,235,0.09)",   border: "#2563eb", dot: "#2563eb" },
+  { bg: "rgba(109,40,217,0.09)",  border: "#7c3aed", dot: "#7c3aed" },
+  { bg: "rgba(13,148,136,0.09)",  border: "#0d9488", dot: "#0d9488" },
+]
+
 function ThankYouPanel({
   content,
   gradient,
@@ -101,6 +108,8 @@ function ThankYouPanel({
   content: SiteContent
   gradient: string
 }) {
+  const team = content.thankYou.team ?? []
+
   return (
     <>
       <div
@@ -113,7 +122,6 @@ function ThankYouPanel({
       <div className="panel-index">Finale</div>
       <h2 className="panel-title">{content.thankYou.title}</h2>
 
-      {/* Thank you body also supports markdown */}
       <div className="panel-body">
         <MarkdownBody src={content.thankYou.body} />
       </div>
@@ -124,6 +132,35 @@ function ThankYouPanel({
       >
         {content.thankYou.signature}
       </p>
+
+      {/* Team credits */}
+      {team.length > 0 && (
+        <div className="credits-section">
+          <div className="credits-label">Built by</div>
+          <div className="credits-grid">
+            {team.map((name, i) => {
+              const c = CREDIT_COLORS[i % CREDIT_COLORS.length]
+              return (
+                <div
+                  key={name}
+                  className="credits-name"
+                  style={{
+                    background: c.bg,
+                    borderLeftColor: c.border,
+                    animationDelay: `${i * 0.22}s`,
+                  }}
+                >
+                  <span
+                    className="credits-dot"
+                    style={{ background: c.dot }}
+                  />
+                  {name}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </>
   )
 }

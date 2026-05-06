@@ -83,6 +83,36 @@ body,
   animation-delay: 0.18s;
 }
 
+.intro-byline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.55rem 1.1rem;
+  margin-top: 1.6rem;
+  opacity: 0;
+  animation: introItemFade 5.2s ease-in-out forwards;
+  animation-delay: 0.42s;
+}
+
+.intro-author {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: clamp(0.78rem, 1.6vw, 0.95rem);
+  font-weight: 500;
+  color: var(--ink);
+  letter-spacing: 0.005em;
+}
+
+.intro-author-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
 .intro-skip {
   position: absolute;
   bottom: 2rem;
@@ -456,6 +486,72 @@ body,
 .md-body strong {
   font-weight: 700;
   color: var(--ink);
+}
+
+/* ─── Team credits (finale panel) ───────────────────────────────────────── */
+@keyframes credits-appear {
+  from {
+    opacity: 0;
+    transform: translateX(-18px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+.credits-section {
+  margin: 0.5rem 1.3rem 1.4rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid rgba(10, 10, 10, 0.08);
+}
+
+.credits-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--muted);
+  margin-bottom: 0.55rem;
+}
+
+.credits-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.38rem;
+}
+
+.credits-name {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.52rem 0.9rem;
+  border-radius: 9px;
+  border-left: 3px solid transparent;
+  font-size: 0.91rem;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+  /* Slide-in triggered when component mounts (panel shows at finale) */
+  animation: credits-appear 0.52s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.credits-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  /* Subtle pulse to give equal "life" to each member */
+  animation: dot-pulse 2.4s ease-in-out infinite;
+}
+
+.credits-name:nth-child(2) .credits-dot { animation-delay: 0.8s; }
+.credits-name:nth-child(3) .credits-dot { animation-delay: 1.6s; }
+
+@keyframes dot-pulse {
+  0%, 100% { transform: scale(1);    opacity: 1; }
+  50%       { transform: scale(1.45); opacity: 0.7; }
 }
 
 /* ─── Progress bar (bottom) ──────────────────────────────────────────────── */

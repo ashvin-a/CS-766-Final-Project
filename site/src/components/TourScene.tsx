@@ -7,6 +7,7 @@ import { WaveField } from "./WaveField"
 import { TourSphere } from "./TourSphere"
 import { Beacons } from "./Beacons"
 import { ResultsBars } from "./ResultsBars"
+import { TeamOrbs } from "./TeamOrbs"
 
 // ─── Cinematic follow-cam ──────────────────────────────────────────────────
 interface RigProps {
@@ -162,6 +163,17 @@ export function TourScene({ curveData, progressRef, activeIdx }: Props) {
       {beaconPositions[6] != null && (
         <ResultsBars position={beaconPositions[6]} active={activeIdx === 6} />
       )}
+
+      {/* Team orbs orbit at the finale (thank-you) beacon */}
+      {(() => {
+        const finaleIdx = beaconPositions.length - 1
+        return beaconPositions[finaleIdx] != null ? (
+          <TeamOrbs
+            position={beaconPositions[finaleIdx]}
+            active={activeIdx === finaleIdx}
+          />
+        ) : null
+      })()}
     </Canvas>
   )
 }
